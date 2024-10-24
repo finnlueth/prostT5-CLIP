@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name ="src"
+version = "0.0.1"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.ruff]
+extend-select = ["C4", "NPY", "PD", "SIM", "TCH"]
+ignore = ["E501", "F405"]
+show-fixes = true
+# target-version = "py310"
+
+# change the default line length number or characters.
+line-length = 128
+
+[tool.pylint]
+max-line-length = 128
+disable = []
+
