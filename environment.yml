@@ -1,4 +1,4 @@
-name: mdcath_to_3di
+name: prostT5-CLIP
 channels:
   - nvidia
   - pytorch
@@ -20,6 +20,7 @@ dependencies:
     - plotly
     - scipy
     - scikit-learn
+    - jupyterlab
     - ipykernel
     - ipywidgets
     - tqdm
