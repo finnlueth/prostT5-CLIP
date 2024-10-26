@@ -19,7 +19,9 @@ tool for bidirectional protein-text understanding and generation.
 ## Conda/Micromamba
 
 ```sh
-micromamba env create --file environment.yml --prefix ./.venv -y
+git submodule init
+
+micromamba env create --file env_base.yml --prefix ./.venv -y
 micromamba activate --prefix ./.venv
 micromamba env remove --prefix ./.venv -y
 micromamba deactivate
