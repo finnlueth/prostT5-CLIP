@@ -21,6 +21,8 @@ from torch.nn import (
     MSELoss,
 )
 from transformers import (
+    CLIPProcessor,
+    CLIPModel,
     AutoModelForCausalLM,
     AutoTokenizer,
     T5Config,

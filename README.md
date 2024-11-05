@@ -22,3 +22,9 @@ micromamba activate --prefix ./.venv
 micromamba env remove --prefix ./.venv -y
 micromamba deactivate
 ```
+
+## Other Resources
+
+* Training Code: https://github.com/openai/CLIP/issues/83
+* https://github.com/wukevin/proteinclip
+* https://github.com/pan-emily/protein-clip
