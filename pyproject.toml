@@ -22,4 +22,3 @@ line-length = 128
 [tool.pylint]
 max-line-length = 128
 disable = []
-

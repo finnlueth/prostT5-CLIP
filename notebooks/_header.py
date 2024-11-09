@@ -1,18 +1,21 @@
 import copy
 import inspect
 import math
+import os
+import random
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
-import random
-import os
 
 import h5py
 import numpy as np
 import pandas as pd
+import peft
 import pyarrow as pa
-
 import torch
 import torch.nn.functional as F
+from peft import (
+    LoraConfig,
+)
 from torch import nn
 from torch.nn import (
     BCEWithLogitsLoss,
@@ -21,10 +24,10 @@ from torch.nn import (
     MSELoss,
 )
 from transformers import (
-    CLIPProcessor,
-    CLIPModel,
     AutoModelForCausalLM,
     AutoTokenizer,
+    CLIPModel,
+    CLIPProcessor,
     T5Config,
     T5EncoderModel,
     T5ForTokenClassification,
