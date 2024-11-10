@@ -164,11 +164,11 @@ cython_debug/
 # dvc
 .dvc/
 .dvcignore
+.dvc.lock
 
 tmp/
 .DS_Store
-/cafa5
-cafa5.dvc
-/outputs
-
-/clusters
+clusters/
+cafa5/
+cluster/
+embeddings/
