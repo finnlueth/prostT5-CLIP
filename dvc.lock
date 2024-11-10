@@ -1,0 +1,36 @@
+schema: '2.0'
+stages:
+  cluster:
+    cmd: python -m src.data.cluster
+    deps:
+    - path: cafa5/test/testsuperset.fasta
+      hash: md5
+      md5: 300f1db5cae468f0da83b51342a5db19
+      size: 72174335
+    - path: cafa5/train/train_sequences.fasta
+      hash: md5
+      md5: 015f50481d9f22985c5fcfbc004de281
+      size: 97263064
+    params:
+      params.yaml:
+        cluster.outs: clusters
+        cluster.test:
+          threads: 12
+          coverage: 0.9
+          min_seq_id: 0.5
+          cluster_mode: 0
+          cov_mode: 0
+          reassign: false
+        cluster.train:
+          threads: 12
+          coverage: 0.8
+          min_seq_id: 0.3
+          cluster_mode: 0
+          cov_mode: 0
+          reassign: true
+    outs:
+    - path: clusters
+      hash: md5
+      md5: b28fb4fa4d7c6837a5f855adc56e06ec.dir
+      size: 245078597
+      nfiles: 6

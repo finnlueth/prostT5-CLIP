@@ -1,0 +1,28 @@
+# dvc.yaml
+stages:
+  cluster:
+    cmd: python -m src.data.cluster
+    deps:
+      - cafa5/train/train_sequences.fasta
+      - cafa5/test/testsuperset.fasta
+    params:
+      - cluster.outs
+      - cluster.train
+      - cluster.test
+    outs:
+      - clusters
+  embed:
+    cmd: python -m src.data.embed_seq
+    deps:
+      - cafa5/train/train_sequences.fasta
+      - cafa5/test/testsuperset.fasta
+    params:
+      - embed.device
+      - embed.model
+      - embed.emb_type
+      - embed.outs
+      - embed.train_set
+      - embed.test_set
+    outs:
+      - outputs/embeddings/train_embeddings.h5
+      - outputs/embeddings/test_embeddings.h5

@@ -16,11 +16,27 @@ descriptions from a given sequences.
 By leveraging the strengths of both protein and language models, we aim to develop a powerful
 tool for bidirectional protein-text understanding and generation.
 
-## Conda/Micromamba
+## DVC setup
+1. Install DVC: `pip install dvc`
+2. Initialize DVC: `dvc init`
+3. Add data: `dvc add data/`
+4. Commit changes: `git add data.dvc data/.gitignore && git commit -m "Add data"`
+5. Push to remote: `git push`
+6. Run pipeline: `dvc repro`
 
-```sh
-micromamba env create --file environment.yml --prefix ./.venv -y
-micromamba activate --prefix ./.venv
-micromamba env remove --prefix ./.venv -y
-micromamba deactivate
-```
+## Folder Structure
+prostT5-CLIP/
+├── .dvc/
+├── .git/
+├── cafa5/
+├── outputs/
+├── embeddings/
+├── src/
+│   └── data/
+│       └── cluster.py
+│       └── dataset.py
+│   └── model/
+├── .dvcignore
+├── .gitignore
+├── dvc.yaml
+└── params.yaml

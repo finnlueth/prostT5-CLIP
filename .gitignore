@@ -161,7 +161,14 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
+# dvc
+.dvc/
+.dvcignore
 
 tmp/
 .DS_Store
 /cafa5
+cafa5.dvc
+/outputs
+
+/clusters
