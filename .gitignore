@@ -171,4 +171,5 @@ tmp/
 clusters/
 cafa5/
 cluster/
-embeddings/
+embeddings/*.h5
+notebooks/tair.gaf
