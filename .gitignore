@@ -172,4 +172,6 @@ clusters/
 cafa5/
 cluster/
 embeddings/*.h5
-notebooks/tair.gaf
+notebooks/Phi3_embeddings.ipynb
+notebooks/pLM_embeddings.ipynb
+
