@@ -20,11 +20,10 @@ tool for bidirectional protein-text understanding and generation.
 1. Install DVC: `pip install dvc`
 2. Initialize DVC: `dvc init`
 3. Add data: `dvc add data/`
-4. Commit changes: `git add data.dvc data/.gitignore && git commit -m "Add data"`
-5. Push to remote: `git push`
-6. Run pipeline: `dvc repro`
+4. Run pipeline: `dvc repro`
 
 ## Folder Structure
+```
 prostT5-CLIP/
 ├── .dvc/
 ├── .git/
@@ -40,3 +39,4 @@ prostT5-CLIP/
 ├── .gitignore
 ├── dvc.yaml
 └── params.yaml
+```
