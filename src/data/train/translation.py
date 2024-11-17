@@ -46,6 +46,7 @@ train_terms_df['GO Sentence'] = train_terms_df['term'].map(
 )
 
 train_terms_df.drop_duplicates(subset='term', inplace=True)
+train_terms_df = train_terms_df.replace('_', ' ', regex=True)
 train_terms_df.to_csv(output_tsv_path, sep='\t', index=False)
 print(f"Extended TSV file saved to: {output_tsv_path}")
 def parse_obo_by_aspect(file_path):
@@ -71,7 +72,7 @@ def parse_obo_by_aspect(file_path):
 def parse_tsv_by_aspect(file_path):
     aspects = {"BPO": set(), "CCO": set(), "MFO": set()}
     with open(file_path, 'r', encoding='utf-8') as file:
-        next(file)  # Skip header
+        next(file)
         for line in file:
             _, go_term, aspect = line.strip().split('\t')[:3]
             aspects[aspect].add(go_term)
@@ -108,6 +109,5 @@ with open(output_path, 'w', encoding='utf-8') as output_file:
         output_file.write('\n')
 
 print(f"Results saved to: {output_path}")
-
 
 
