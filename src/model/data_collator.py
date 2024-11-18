@@ -16,11 +16,20 @@ class DataCollatorForProtT5CLIP:
     return_tensors: str = "pt"
 
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
-        label_name_plm = "input_ids_sequence"
-        label_name_llm = "input_ids_text"
-        
+        # label_name_plm = "input_ids_sequence"
+        # label_name_llm = "input_ids_text"
+        print('collating')
         print(features)
+        
+        features_plm = []
+        features_llm = []
+        for feature in features:
+            for sequence, text in zip(feature["sequence"], feature["text"]):
+                features_plm.append({"input_ids": sequence})
+                features_llm.append({"input_ids": text})
 
+        print(features_plm)
+        print(features_llm)
         # features_plm = [
         #     {k.replace("input_ids_sequence", "input_ids"): v for k, v in feature.items() if label_name_plm == k}
         #     for feature in features

@@ -62,8 +62,8 @@ class ProtT5CLIP(nn.Module):
 
     def forward(
         self,
-        input_ids_sequence=None,
-        attention_mask_sequence=None,
+        input_ids=None,
+        attention_mask=None,
         # input_ids_text=None,
         # attention_mask_text=None,
         *args,
