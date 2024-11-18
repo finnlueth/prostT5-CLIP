@@ -52,17 +52,9 @@ class ProtT5CLIP(nn.Module):
     ):
         if self.freeze_llm:
             with torch.no_grad():
-                outputs = self.model_llm(
-                    input_ids=text_ids,
-                    attention_mask=text_attention_mask,
-                    output_hidden_states=True
-                )
+                outputs = self.model_llm(input_ids=text_ids, attention_mask=text_attention_mask, output_hidden_states=True)
         else:
-            outputs = self.model_llm(
-                input_ids=text_ids,
-                attention_mask=text_attention_mask,
-                output_hidden_states=True
-            )
+            outputs = self.model_llm(input_ids=text_ids, attention_mask=text_attention_mask, output_hidden_states=True)
         return outputs
 
     def forward(
@@ -83,5 +75,5 @@ class ProtT5CLIP(nn.Module):
             text_attention_mask=attention_mask["attention_mask_text"],
         )
 
-        protein_hidden_states = protein_features['last_hidden_state']
-        text_hidden_states = text_features['hidden_states']
+        protein_hidden_states = protein_features["last_hidden_state"]
+        text_hidden_states = text_features["hidden_states"]
