@@ -16,55 +16,38 @@ class DataCollatorForProtT5CLIP:
     return_tensors: str = "pt"
 
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
-        # label_name_plm = "input_ids_sequence"
-        # label_name_llm = "input_ids_text"
-        print('collating')
-        print(features)
-        
-        features_plm = []
-        features_llm = []
+        features_plm = {'input_ids': [], 'attention_mask': []}
+        features_llm = {'input_ids': [], 'attention_mask': []}
         for feature in features:
-            for sequence, text in zip(feature["sequence"], feature["text"]):
-                features_plm.append({"input_ids": sequence})
-                features_llm.append({"input_ids": text})
+            for k, v in feature.items():
+                features_plm[k].append(v['sequence'])
+                features_llm[k].append(v['text'])
 
-        print(features_plm)
-        print(features_llm)
-        # features_plm = [
-        #     {k.replace("input_ids_sequence", "input_ids"): v for k, v in feature.items() if label_name_plm == k}
-        #     for feature in features
-        # ]
-        # features_llm = [
-        #     {k.replace("input_ids_text", "input_ids"): v for k, v in feature.items() if label_name_llm == k}
-        #     for feature in features
-        # ]
+        batch_plm = pad_without_fast_tokenizer_warning(
+            self.tokenizer_plm,
+            encoded_inputs=features_plm,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors="pt",
+        )
 
+        batch_llm = pad_without_fast_tokenizer_warning(
+            self.tokenizer_llm,
+            encoded_inputs=features_llm,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors="pt",
+        )
 
-        # batch_plm = pad_without_fast_tokenizer_warning(
-        #     self.tokenizer_plm,
-        #     encoded_inputs=features_plm,
-        #     padding=self.padding,
-        #     max_length=self.max_length,
-        #     pad_to_multiple_of=self.pad_to_multiple_of,
-        #     return_tensors="pt",
-        # )
-
-        # batch_llm = pad_without_fast_tokenizer_warning(
-        #     self.tokenizer_llm,
-        #     encoded_inputs=features_llm,
-            # padding=self.padding,
-            # max_length=self.max_length,
-            # pad_to_multiple_of=self.pad_to_multiple_of,
-            # return_tensors="pt",
-        # )
-
-        # return {
-        #     "input_ids": {
-        #         "input_ids_sequence": batch_plm["input_ids"],
-        #         "input_ids_text": batch_llm["input_ids"],
-        #     },
-        #     "attention_mask": {
-        #         "attention_mask_sequence": batch_plm["attention_mask"],
-        #         "attention_mask_text": batch_llm["attention_mask"],
-        #     },
-        # }
+        return {
+            "input_ids": {
+                "input_ids_sequence": batch_plm["input_ids"],
+                "input_ids_text": batch_llm["input_ids"],
+            },
+            "attention_mask": {
+                "attention_mask_sequence": batch_plm["attention_mask"],
+                "attention_mask_text": batch_llm["attention_mask"],
+            },
+        }

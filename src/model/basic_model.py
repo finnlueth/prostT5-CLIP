@@ -10,6 +10,9 @@ from src.model.utils import pool_features, postprocess_features
 class ProtT5CLIP(nn.Module):
     def __init__(self, model_cfg: dict):
         super().__init__()
+
+        self.freeze_llm = model_cfg["freeze_llm"]
+
         self.model_llm, self.loading_info_llm = AutoModelForCausalLM.from_pretrained(
             model_cfg["base_model_llm"],
             # device_map="auto",
@@ -52,11 +55,13 @@ class ProtT5CLIP(nn.Module):
                 outputs = self.model_llm(
                     input_ids=text_ids,
                     attention_mask=text_attention_mask,
+                    output_hidden_states=True
                 )
         else:
             outputs = self.model_llm(
                 input_ids=text_ids,
                 attention_mask=text_attention_mask,
+                output_hidden_states=True
             )
         return outputs
 
@@ -69,17 +74,14 @@ class ProtT5CLIP(nn.Module):
         *args,
         **kwargs,
     ):
-        print('test')
-        # print(kwargs)
-        # protein_features = self.encode_protein(
-        #     protein_ids=protein_ids,
-        #     protein_attention_mask=protein_attention_mask,
-        # )
+        protein_features = self.encode_protein(
+            protein_ids=input_ids["input_ids_sequence"],
+            protein_attention_mask=attention_mask["attention_mask_sequence"],
+        )
+        text_features = self.encode_text(
+            text_ids=input_ids["input_ids_text"],
+            text_attention_mask=attention_mask["attention_mask_text"],
+        )
 
-        # text_features = self.encode_text(
-        #     text_ids=text_ids,
-        #     text_attention_mask=text_attention_mask,
-        # )
-
-        # print(text_features.last_hidden_state.shape, text_features.last_hidden_state)
-        # print(text_features.pooler_output.shape, text_features.pooler_output)
+        protein_hidden_states = protein_features['last_hidden_state']
+        text_hidden_states = text_features['hidden_states']
