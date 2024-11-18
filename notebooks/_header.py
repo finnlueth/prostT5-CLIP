@@ -4,7 +4,7 @@ import math
 import os
 import random
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Literal, Any
 
 import h5py
 import numpy as np
@@ -12,6 +12,7 @@ import pandas as pd
 import peft
 import pyarrow as pa
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from peft import (
     LoraConfig,
