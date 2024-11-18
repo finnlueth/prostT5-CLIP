@@ -7,14 +7,6 @@ import torch.nn.functional as F
 from torch import nn
 
 
-class PLMLLMCLIP:
-    def __init__():
-        pass
-    
-    def forward():
-        pass
-
-
 class LayerNorm(nn.LayerNorm):
     """Subclass torch's LayerNorm to handle fp16."""
 
@@ -42,27 +34,15 @@ class CLIP(nn.Module):
         super().__init__()
 
         self.context_length = context_length
-
+ 
 # replace w/ plm
-        if isinstance(vision_layers, (tuple, list)):
-            vision_heads = vision_width * 32 // 64
-            self.visual = ModifiedResNet(
-                layers=vision_layers,
-                output_dim=embed_dim,
-                heads=vision_heads,
-                input_resolution=image_resolution,
-                width=vision_width
-            )
-        else:
-            vision_heads = vision_width // 64
-            self.visual = VisionTransformer(
-                input_resolution=image_resolution,
-                patch_size=vision_patch_size,
-                width=vision_width,
-                layers=vision_layers,
-                heads=vision_heads,
-                output_dim=embed_dim
-            )
+        plm_model, plm_loading_info = T5EncoderModel.from_pretrained(
+            pretrained_model_name_or_path='',
+            output_loading_info=True,
+            # device_map=device,
+            # load_in_8bit=False,
+            # custom_dropout_rate=0.1,
+        )
 
 # replace w/ llm
         self.transformer = Transformer(
