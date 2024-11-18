@@ -21,14 +21,14 @@ class DataCollatorForProtT5CLIP:
         
         print(features)
 
-        features_plm = [
-            {k.replace("input_ids_sequence", "input_ids"): v for k, v in feature.items() if label_name_plm == k}
-            for feature in features
-        ]
-        features_llm = [
-            {k.replace("input_ids_text", "input_ids"): v for k, v in feature.items() if label_name_llm == k}
-            for feature in features
-        ]
+        # features_plm = [
+        #     {k.replace("input_ids_sequence", "input_ids"): v for k, v in feature.items() if label_name_plm == k}
+        #     for feature in features
+        # ]
+        # features_llm = [
+        #     {k.replace("input_ids_text", "input_ids"): v for k, v in feature.items() if label_name_llm == k}
+        #     for feature in features
+        # ]
 
 
         # batch_plm = pad_without_fast_tokenizer_warning(
