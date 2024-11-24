@@ -75,5 +75,15 @@ class ProtT5CLIP(nn.Module):
             text_attention_mask=attention_mask["attention_mask_text"],
         )
 
-        protein_hidden_states = protein_features["last_hidden_state"]
-        text_hidden_states = text_features["hidden_states"]
+        protein_features = protein_features["last_hidden_state"]
+        text_features = text_features["hidden_states"]
+        
+        protein_features = protein_features / protein_features.norm(dim=1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=1, keepdim=True)
+        
+        logit_scale = self.logit_scale.exp()
+        logits_per_protein = logit_scale * protein_features @ text_features.t()
+        logits_per_text = logits_per_protein.t()
+        
+        return logits_per_protein, logits_per_text
+
