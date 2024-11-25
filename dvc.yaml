@@ -1,28 +1,70 @@
-# dvc.yaml
 stages:
+  metadata:
+    cmd: python src/utils/metadata.py
+    deps:
+      - cafa5/train/go-basic.obo
+      - cafa5/train/train_sequences.fasta
+      - cafa5/train/train_taxonomy.tsv
+      - cafa5/train/train_terms.tsv
+    params:
+      - metadata.data_folder
+      - metadata.out
+      - metadata.terms_include
+    outs:
+      - output/train_metadata.tsv
+      - output/go_sentences.tsv
   cluster:
     cmd: python -m src.data.cluster
     deps:
-      - cafa5/train/train_sequences.fasta
       - cafa5/test/testsuperset.fasta
+      - cafa5/train/train_sequences.fasta
     params:
-      - cluster.outs
-      - cluster.train
+      - cluster.out
       - cluster.test
+      - cluster.train
     outs:
       - clusters
-  embed:
+  embed_seq:
     cmd: python -m src.data.embed_seq
     deps:
-      - cafa5/train/train_sequences.fasta
       - cafa5/test/testsuperset.fasta
+      - cafa5/train/train_sequences.fasta
     params:
-      - embed.device
-      - embed.model
-      - embed.emb_type
-      - embed.outs
-      - embed.train_set
-      - embed.test_set
+      - embed_seq.device
+      - embed_seq.emb_type
+      - embed_seq.max_seq_len
+      - embed_seq.model
+      - embed_seq.uniprot
     outs:
-      - outputs/embeddings/train_embeddings.h5
-      - outputs/embeddings/test_embeddings.h5
+      - embeddings/sequence_embeddings.h5:
+          persist: true
+  embed_text:
+    cmd: python -m src.data.embed_text
+    deps:
+      - output/train_metadata.tsv
+      - output/go_sentences.tsv
+      - src/data/embed_text.py
+    params:
+      - embed_text.device
+      - embed_text.max_len
+      - embed_text.metadata
+      - embed_text.model
+      - embed_text.sentence_level
+      - embed_text.tokenizer
+    outs:
+      - embeddings/text_embeddings.h5:
+          persist: true
+  embed_vis:
+    cmd: python -m src.eval.embed_vis
+    deps:
+      - src/eval/embed_vis.py
+    params:
+      - embed_vis.subsample
+      - embed_vis.seed
+      - embed_vis.n_neighbors
+      - embed_vis.min_dist
+      - embed_vis.n_components
+      - embed_vis.metric
+      - embed_vis.metadata
+      - embed_vis.text_embeddings
+      - embed_vis.sequence_embeddings

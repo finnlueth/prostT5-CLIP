@@ -1,36 +1,105 @@
 schema: '2.0'
 stages:
-  cluster:
-    cmd: python -m src.data.cluster
+  metadata:
+    cmd: python src/utils/metadata.py
+    deps:
+    - path: cafa5/train/go-basic.obo
+      hash: md5
+      md5: 1208619d97a7bba65757c7c1fa4738d1
+      size: 30992530
+    - path: cafa5/train/train_sequences.fasta
+      hash: md5
+      md5: 015f50481d9f22985c5fcfbc004de281
+      size: 97263064
+    - path: cafa5/train/train_taxonomy.tsv
+      hash: md5
+      md5: 73f5275813307540e56e1594a7dd26aa
+      size: 1835615
+    - path: cafa5/train/train_terms.tsv
+      hash: md5
+      md5: cb6b8fed714290bae3d661b018ce3a58
+      size: 119091574
+    params:
+      params.yaml:
+        metadata.data_folder: cafa5/train
+        metadata.out: output
+        metadata.terms_include: 5
+    outs:
+    - path: output/go_sentences.tsv
+      hash: md5
+      md5: 3961a1c6838ea630bc7c4c7a9f095f9e
+      size: 4249705
+    - path: output/train_metadata.tsv
+      hash: md5
+      md5: 8af2f74eb437e9d246dbf34334465adb
+      size: 11727097
+  embed_seq:
+    cmd: python -m src.data.embed_seq
     deps:
     - path: cafa5/test/testsuperset.fasta
       hash: md5
-      md5: 300f1db5cae468f0da83b51342a5db19
-      size: 72174335
+      md5: 0f55645b1203fe26fc741b1579018687
+      size: 72173431
     - path: cafa5/train/train_sequences.fasta
       hash: md5
       md5: 015f50481d9f22985c5fcfbc004de281
       size: 97263064
     params:
       params.yaml:
-        cluster.outs: clusters
-        cluster.test:
-          threads: 12
-          coverage: 0.9
-          min_seq_id: 0.5
-          cluster_mode: 0
-          cov_mode: 0
-          reassign: false
-        cluster.train:
-          threads: 12
-          coverage: 0.8
-          min_seq_id: 0.3
-          cluster_mode: 0
-          cov_mode: 0
-          reassign: true
+        embed_seq.device: cuda
+        embed_seq.emb_type: per_prot
+        embed_seq.max_seq_len: 2048
+        embed_seq.model: Rostlab/prot_t5_xl_half_uniref50-enc
+        embed_seq.uniprot: embeddings/per-protein.h5
     outs:
-    - path: clusters
+    - path: embeddings/sequence_embeddings.h5
       hash: md5
-      md5: b28fb4fa4d7c6837a5f855adc56e06ec.dir
-      size: 245078597
-      nfiles: 6
+      md5: 6c05f04873512d4014bf601927d8ba70
+      size: 684127424
+  embed_text:
+    cmd: python -m src.data.embed_text
+    deps:
+    - path: output/go_sentences.tsv
+      hash: md5
+      md5: 3961a1c6838ea630bc7c4c7a9f095f9e
+      size: 4249705
+    - path: output/train_metadata.tsv
+      hash: md5
+      md5: da0f9b9ee2dfae64dcc0d0813df8572b
+      size: 23787977
+    - path: src/data/embed_text.py
+      hash: md5
+      md5: 998fe7781b8fa6bd44ecdba06bf7467e
+      size: 3001
+    params:
+      params.yaml:
+        embed_text.device: cuda
+        embed_text.max_len: 512
+        embed_text.metadata: output/train_metadata.tsv
+        embed_text.model: microsoft/Phi-3.5-mini-instruct
+        embed_text.sentence_level: sentence_embeddings
+        embed_text.tokenizer: microsoft/Phi-3.5-mini-instruct
+    outs:
+    - path: embeddings/text_embeddings.h5
+      hash: md5
+      md5: c9aa6338b443bfa675ae2536016f0bad
+      size: 548181520
+  embed_vis:
+    cmd: python -m src.eval.embed_vis
+    deps:
+    - path: src/eval/embed_vis.py
+      hash: md5
+      md5: 17d00cf81814f53b8fa5520515001c74
+      size: 6078
+    params:
+      params.yaml:
+        embed_vis.legend: Kingdom
+        embed_vis.metadata: output/train_metadata.tsv
+        embed_vis.metric: cosine
+        embed_vis.min_dist: 0.1
+        embed_vis.n_components: 2
+        embed_vis.n_neighbors: 15
+        embed_vis.seed: 42
+        embed_vis.sequence_embeddings: embeddings/sequence_embeddings.h5
+        embed_vis.subsample: 1000
+        embed_vis.text_embeddings: embeddings/text_embeddings.h5

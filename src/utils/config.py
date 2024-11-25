@@ -3,4 +3,7 @@ import dvc.api
 
 def get_params(key=None):
     """Get parameters from DVC"""
-    return dvc.api.params_show() if key is None else dvc.api.params_show()[key]
+    params = dvc.api.params_show()
+    if key is None:
+        return params
+    return params.get(key, None)

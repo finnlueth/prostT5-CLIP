@@ -168,10 +168,12 @@ cython_debug/
 
 tmp/
 .DS_Store
-clusters/
 cafa5/
-cluster/
 embeddings/*.h5
 notebooks/Phi3_embeddings.ipynb
 notebooks/pLM_embeddings.ipynb
-
+clusters
+/cafa5
+.vscode/settings.json
+dvc.lock
+dvc.lock

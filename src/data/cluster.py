@@ -1,4 +1,3 @@
-import os
 import shutil
 from pathlib import Path
 from subprocess import run
@@ -8,6 +7,7 @@ from ..utils.config import get_params
 
 def cluster_sequences(input_fasta: str, output_dir: str, is_test: bool = False):
     """Cluster sequences using MMseqs2"""
+
     params = get_params("cluster")["test" if is_test else "train"]
 
     out_dir = Path(output_dir)
@@ -44,12 +44,11 @@ def cluster_sequences(input_fasta: str, output_dir: str, is_test: bool = False):
 
 
 def main():
+    params = get_params("cluster")
 
     for is_test in [False, True]:
-        dataset = Path(get_params["data"]["cafa5"]) / (
-            "test/testsuperset.fasta" if is_test else "train/train_sequences.fasta"
-        )
-        out_dir = Path(get_params["cluster"]["outs"]) / ("test" if is_test else "train")
+        dataset = Path(params["test" if is_test else "train"])
+        out_dir = Path(params["out"]) / ("test" if is_test else "train")
 
         cluster_sequences(str(dataset), str(out_dir), is_test)
 

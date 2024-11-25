@@ -1,38 +1,49 @@
+from pathlib import Path
+
 import h5py
 import torch
-from torch.utils.data import Dataset, DataLoader
-import numpy as np
+from sklearn.model_selection import KFold
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.sampler import SubsetRandomSampler
+
+from ..utils.config import get_params
 
 
 class EmbeddingDataset(Dataset):
     def __init__(self, prot_emb_file: str, text_emb_file: str):
-        """Load protein and text embeddings from h5 files"""
-        self.prot_embs = h5py.File(prot_emb_file, "r")
-        self.text_embds = h5py.File(text_emb_file, "r")
-
-        self.prot_ids = list(self.seq_embs.keys())
+        self.prot_embs = h5py.File(Path(prot_emb_file).resolve(), "r")
+        self.text_embds = h5py.File(Path(text_emb_file).resolve(), "r")
+        self.prot_ids = list(self.prot_embs.keys())
 
     def __len__(self):
-        return len(self.protein_ids)
+        return len(self.prot_ids)
 
-    def __getitem__(self):
-        # Random sample a protein embedding
-        prot_id = np.random.choice(self.prot_ids)
-        prot_emb = torch.from_numpy(self.seq_embs[prot_id][()])
-
+    def __getitem__(self, idx):
+        prot_id = self.prot_ids[idx]
+        prot_emb = torch.from_numpy(self.prot_embs[prot_id][()])
         text_emb = torch.from_numpy(self.text_embds[prot_id][()])
-
         return prot_emb, text_emb
 
-    def close(self):
-        self.protein_data.close()
-        self.text_data.close()
 
-
-def get_dataloader(batch_size=32, num_workers=8):
+def get_train_test_dataloaders(k: int = 5, batch_size: int = 32, num_workers: int = 8):
     dataset = EmbeddingDataset(
-        "embeddings/protein_embeddings.h5", "embeddings/text_embeddings.h5"
+        get_params("dataset")["protein_embeddings"],
+        get_params("dataset")["text_embeddings"],
     )
-    return DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers
-    )
+
+    kf = KFold(n_splits=k, shuffle=True, random_state=get_params("train")["seed"])
+
+    loader_kwargs = {
+        "batch_size": get_params("train")["batch_size"],
+        "num_workers": get_params("train")["num_workers"],
+        "pin_memory": True,
+    }
+
+    for _, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+        train_sampler = SubsetRandomSampler(train_idx)
+        val_sampler = SubsetRandomSampler(val_idx)
+
+        train_loader = DataLoader(dataset, sampler=train_sampler, **loader_kwargs)
+        val_loader = DataLoader(dataset, sampler=val_sampler, **loader_kwargs)
+
+        yield train_loader, val_loader

@@ -1,9 +1,18 @@
-# params.yaml
 data:
   cafa5: "cafa5"
+  train: "cafa5/train"
+  test: "cafa5/test"
+
+plot:
+  out: "output/plot"
+
+metadata:
+  data_folder: "cafa5/train"
+  out: "output"
+  terms_include: 5
 
 cluster:
-  outs: "clusters"
+  out: "clusters"
   train:
     threads: 12
     coverage: 0.8
@@ -13,21 +22,43 @@ cluster:
     reassign: true
   test:
     threads: 12
-    coverage: 0.9
+    coverage: 0.8
     min_seq_id: 0.3
     cluster_mode: 0
     cov_mode: 0
-    reassign: false
-embed:
+    reassign: true
+
+embed_seq:
   device: "cuda"
-  outs: "embeddings"
   model: "Rostlab/prot_t5_xl_half_uniref50-enc"
-  max_seq_len: 1024
+  max_seq_len: 2048
   emb_type: "per_prot"
+  uniprot: "embeddings/per-protein.h5"
+  url: "https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/embeddings/uniprot_sprot/per-protein.h5"
+  output: "embeddings/sequence_embeddings.h5"
   train_set:
-    sequences: "cafa5/train/train_sequences.fasta"
-    outputs: "embeddings/train_embeddings.h5"
+    sequence: "cafa5/train/train_sequences.fasta"
   test_set:
-    sequences: "cafa5/test/testsuperset.fasta"
-    outputs: "embeddings/test_embeddings.h5"
-  dataset:
+    sequence: "cafa5/test/testsuperset.fasta"
+
+embed_text:
+  metadata: "output/train_metadata.tsv"
+  sentence: "output/go_sentences.tsv"
+  model: "microsoft/Phi-3.5-mini-instruct"
+  tokenizer: "microsoft/Phi-3.5-mini-instruct"
+  sentence_level: "sentence_embeddings"
+  max_len: 512
+  device: "cuda"
+  output: "embeddings/text_embeddings.h5"
+
+embed_vis:
+  subsample: 1000
+  seed: 42
+  n_neighbors: 15
+  min_dist: 0.1
+  n_components: 2
+  metric: "cosine"
+  metadata: "output/train_metadata.tsv"
+  GO: "output/go_sentences.tsv"
+  text_embeddings: "embeddings/text_embeddings.h5"
+  sequence_embeddings: "embeddings/sequence_embeddings.h5"
