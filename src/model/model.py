@@ -76,7 +76,7 @@ class ProtT5CLIP(nn.Module):
         )
 
         protein_features = protein_features["last_hidden_state"]
-        text_features = text_features["hidden_states"]
+        text_features = text_features["hidden_states"][-1]
         
         protein_features = protein_features / protein_features.norm(dim=1, keepdim=True)
         text_features = text_features / text_features.norm(dim=1, keepdim=True)
