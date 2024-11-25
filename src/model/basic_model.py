@@ -15,7 +15,7 @@ class ProtT5CLIP(nn.Module):
 
         self.model_llm, self.loading_info_llm = AutoModelForCausalLM.from_pretrained(
             model_cfg["base_model_llm"],
-            # device_map="auto",
+            device_map="auto",
             torch_dtype="auto",
             trust_remote_code=True,
             output_loading_info=True,
@@ -23,7 +23,7 @@ class ProtT5CLIP(nn.Module):
 
         self.model_plm, self.loading_info_plm = T5EncoderModel.from_pretrained(
             pretrained_model_name_or_path=model_cfg["base_model_plm"],
-            # device_map='auto',
+            device_map='auto',
             output_loading_info=True,
         )
 
