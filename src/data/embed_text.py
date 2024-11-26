@@ -8,7 +8,7 @@ import torch
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from ..utils.config import get_params
+from src.utils.config import get_params
 
 
 def setup_model(checkpoint="microsoft/Phi-3.5-mini-instruct", device: torch.device = "cuda") -> Tuple:

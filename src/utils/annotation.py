@@ -41,6 +41,7 @@ class GOParser(AnnotationParser):
             go_file: Path to the go-basic.obo file
         """
         self.go_file = go_file
+        self.excludes = set()
         self.go_hierarchy, self.go_names, self.go_sentences = self._parse()
 
     def _process_hierarchy_chunk(self, chunks: list) -> tuple:
@@ -98,19 +99,13 @@ class GOParser(AnnotationParser):
         hierarchy = defaultdict(set)
         names = {}
         sentences = {}
-        excludes = set()
 
         for r in results:
             for parent, children in r[0].items():
                 hierarchy[parent].update(children)
             names.update(r[1])
             sentences.update(r[2])
-            excludes.update(r[3])
-
-        for term in excludes:
-            names.pop(term)
-            if term in hierarchy:
-                hierarchy.pop(term)
+            self.excludes.update(r[3])
 
         return hierarchy, names, sentences
 
@@ -141,7 +136,7 @@ class GOParser(AnnotationParser):
 
     def _reduce_redundancy(self, terms: set) -> set:
         """
-        Remove redundant GO terms by keeping only the most specific (deepest) terms.
+        Remove redundant GO terms by keeping only the most specific (deepest) terms exclusively with is_a relationships.
 
         Args:
             terms: Set of GO terms
@@ -151,10 +146,13 @@ class GOParser(AnnotationParser):
         non_redundants = set()
 
         for term in terms:
-            if term in self.go_names:
-                children = self.go_hierarchy.get(term, set())
-                if not children.intersection(terms):
-                    non_redundants.add(term)
+            children = self.go_hierarchy.get(term, set())
+
+            if not children.intersection(terms):
+                non_redundants.add(term)
+
+        filtered = non_redundants.difference(self.excludes)
+        non_redundants = filtered if len(filtered) > 0 else non_redundants
 
         return non_redundants
 

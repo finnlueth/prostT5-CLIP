@@ -6,7 +6,7 @@ from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
 
-from ..utils.config import get_params
+from src.utils.config import get_params
 
 
 class EmbeddingDataset(Dataset):

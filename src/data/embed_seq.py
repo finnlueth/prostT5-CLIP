@@ -11,7 +11,7 @@ from pyfaidx import Fasta
 from tqdm import tqdm
 from transformers import AutoTokenizer, EsmModel, T5EncoderModel, T5Tokenizer
 
-from ..utils.config import get_params
+from src.utils.config import get_params
 
 
 def setup_model(checkpoint, device: torch.device = "mps") -> Tuple:
@@ -87,9 +87,11 @@ def create_embedding(
 ):
     model, tokenizer, mod_type = setup_model(checkpoint, device=device)
     model.eval()
-    df = seq_preprocess(df, mod_type)
+    preprocessed = seq_preprocess(df, mod_type)
 
-    def compute_embedding(sequence: Union[str, List[str]], emb_type: str, max_seq_len: int = 1024):
+    def compute_embedding(
+        sequence: Union[str, List[str]], emb_type: str, max_seq_len: int = 1024, model=model, tokenizer=tokenizer
+    ):
         inputs = tokenizer(
             sequence,
             return_tensors="pt",
@@ -120,7 +122,9 @@ def create_embedding(
 
         embs, headers = [], []
 
-        for i, (_, row) in enumerate(tqdm(df.iterrows(), total=len(df), desc="Embedding sequences", leave=False)):
+        for i, (_, row) in enumerate(
+            tqdm(preprocessed.iterrows(), total=len(preprocessed), desc="Embedding sequences", leave=False)
+        ):
             sequence = row["sequence"]
             header = row["header"]
 
@@ -133,7 +137,7 @@ def create_embedding(
             headers.append(header)
 
             # Save every 1000 sequences
-            if (i + 1) % steps == 0 or i == len(df) - 1:
+            if (i + 1) % steps == 0 or i == len(preprocessed) - 1:
                 for h, emb in zip(headers, embs):
                     if h not in hdf[split]:
                         hdf[split].create_dataset(name=h, data=emb)
@@ -211,11 +215,9 @@ def main():
         for split in ["train_set", "test_set"]:
             inputs = Path(params[split]["sequence"]).resolve()
 
-            df = pd.DataFrame(split_embeddings(inputs, emb, Path(params["output"]), split))
-
             create_embedding(
                 checkpoint=params["model"],
-                df=df,
+                df=pd.DataFrame(split_embeddings(inputs, emb, Path(params["output"]), split)),
                 split=split,
                 emb_type=params["emb_type"],
                 max_seq_len=params["max_seq_len"],

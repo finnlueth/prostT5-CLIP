@@ -6,27 +6,31 @@ data:
 plot:
   out: "output/plot"
 
-metadata:
-  data_folder: "cafa5/train"
-  out: "output"
-  terms_include: 5
-
 cluster:
   out: "clusters"
   train:
+    sequence: "cafa5/train/train_sequences.fasta"
     threads: 12
+    max_seq_len: 2048
     coverage: 0.8
     min_seq_id: 0.3
     cluster_mode: 0
     cov_mode: 0
     reassign: true
   test:
+    sequence: "cafa5/test/testsuperset.fasta"
     threads: 12
+    max_seq_len: 2048
     coverage: 0.8
     min_seq_id: 0.3
     cluster_mode: 0
     cov_mode: 0
     reassign: true
+
+metadata:
+  data_folder: "cafa5/train"
+  cluster_folder: "clusters"
+  out: "output"
 
 embed_seq:
   device: "cuda"

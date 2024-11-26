@@ -21,9 +21,9 @@ stages:
       size: 119091574
     params:
       params.yaml:
+        metadata.cluster_folder: clusters
         metadata.data_folder: cafa5/train
         metadata.out: output
-        metadata.terms_include: 5
     outs:
     - path: output/go_sentences.tsv
       hash: md5
@@ -31,8 +31,8 @@ stages:
       size: 4249705
     - path: output/train_metadata.tsv
       hash: md5
-      md5: 8af2f74eb437e9d246dbf34334465adb
-      size: 11727097
+      md5: 2668e071a0f5e6a23b06462fc68c787b
+      size: 5586516
   embed_seq:
     cmd: python -m src.data.embed_seq
     deps:
@@ -103,3 +103,41 @@ stages:
         embed_vis.sequence_embeddings: embeddings/sequence_embeddings.h5
         embed_vis.subsample: 1000
         embed_vis.text_embeddings: embeddings/text_embeddings.h5
+  cluster:
+    cmd: python -m src.data.cluster
+    deps:
+    - path: cafa5/test/testsuperset.fasta
+      hash: md5
+      md5: 0f55645b1203fe26fc741b1579018687
+      size: 72173431
+    - path: cafa5/train/train_sequences.fasta
+      hash: md5
+      md5: 015f50481d9f22985c5fcfbc004de281
+      size: 97263064
+    params:
+      params.yaml:
+        cluster.out: clusters
+        cluster.test:
+          sequence: cafa5/test/testsuperset.fasta
+          threads: 12
+          max_seq_len: 2048
+          coverage: 0.8
+          min_seq_id: 0.3
+          cluster_mode: 0
+          cov_mode: 0
+          reassign: true
+        cluster.train:
+          sequence: cafa5/train/train_sequences.fasta
+          threads: 12
+          max_seq_len: 2048
+          coverage: 0.8
+          min_seq_id: 0.3
+          cluster_mode: 0
+          cov_mode: 0
+          reassign: true
+    outs:
+    - path: clusters
+      hash: md5
+      md5: ab4ac78d495745b1d7f2490ad947ecf2.dir
+      size: 234932139
+      nfiles: 6

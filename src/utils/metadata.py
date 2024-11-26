@@ -17,12 +17,14 @@ from tqdm import tqdm
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def gather_protein_annotations(train_folder: Path) -> pd.DataFrame:
+def gather_protein_annotations(train_folder: Path, cluster_folder: Path, rep_only: bool = True) -> pd.DataFrame:
     """
     Gather all GO terms and aspects for each protein entry.
 
     Args:
         train_folder: Path to the folder with train_terms.tsv, train_taxonomy.tsv, train_sequences.fasta and go-basic.obo
+        cluster_folder: Path to the folder with MMseqs cluster results
+        rep_only: only representive sequences of MMseqs
 
     Returns:
         pd.Dataframe: DataFrame with proteins and their grouped annotations
@@ -37,6 +39,10 @@ def gather_protein_annotations(train_folder: Path) -> pd.DataFrame:
         .groupby("EntryID")
         .agg({"term": lambda x: set(x), "aspect": lambda x: set(x)})
     )
+
+    if rep_only:
+        seq_rep = pd.read_csv(cluster_folder / "train_cluster.tsv", sep="\t", header=None)[0]
+        cafa = cafa[cafa.index.isin(seq_rep)]
 
     grouped = defaultdict(lambda: {"terms": set(), "aspects": set()})
     for protein, row in tqdm(cafa.iterrows(), total=len(cafa), desc="Grouping GO terms"):
@@ -194,7 +200,7 @@ def main():
 
     params = get_params("metadata")
 
-    metadata, sentences = gather_protein_annotations(Path(params["data_folder"]))
+    metadata, sentences = gather_protein_annotations(Path(params["data_folder"]), Path(params["cluster_folder"]))
 
     metadata.to_csv(Path(params["out"]) / "train_metadata.tsv", sep="\t", index=False)
 
