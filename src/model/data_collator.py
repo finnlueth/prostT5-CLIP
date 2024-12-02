@@ -40,14 +40,13 @@ class DataCollatorForProtT5CLIP:
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors="pt",
         )
+        
+        # print("batch_plm: ", batch_plm)
+        # print("batch_llm: ", batch_llm)
 
         return {
-            "input_ids": {
-                "input_ids_sequence": batch_plm["input_ids"],
-                "input_ids_text": batch_llm["input_ids"],
-            },
-            "attention_mask": {
-                "attention_mask_sequence": batch_plm["attention_mask"],
-                "attention_mask_text": batch_llm["attention_mask"],
-            },
+            "input_ids_sequence": batch_plm["input_ids"],
+            "input_ids_text": batch_llm["input_ids"],
+            "attention_mask_sequence": batch_plm["attention_mask"],
+            "attention_mask_text": batch_llm["attention_mask"],
         }

@@ -28,14 +28,16 @@ micromamba deactivate
 ```sh
 docker container run -it --cpus 8 --memory 32G --gpus 1 -d --env-file ~/.docker_config/env.list \
 -v $(pwd -P)/:/home/lfi/mnt/dev/ \
--v /mnt/project/data/lfi/huggingface:/home/lfi/.cache/huggingface\
--v /mnt/bio/home/lfi/.cursor-server:/home/lfi/.cursor-server\
---name finn-container finn-image 
+-v /mnt/project/data/lfi/huggingface:/home/lfi/.cache/huggingface \
+-v /mnt/bio/home/lfi/.cursor-server:/home/lfi/.cursor-server \
+--name finn-container-prostt5-clip finn-image 
 
-docker container start finn-container
-docker container stop finn-container
+docker container start finn-container-prostt5-clip
+docker container exec -it finn-container-prostt5-clip "/bin/bash" 
 
-docker container rm finn-container
+docker container stop finn-container-prostt5-clip
+
+docker container rm finn-container-prostt5-clip
 ```
 
 ## Other Resources
