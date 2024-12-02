@@ -33,5 +33,8 @@ dependencies:
     - logomaker
     - sentencepiece
     - protobuf
+    - h5py
+    - protobuf
+    # - flash_attn # only CUDA capable machines
   - pip:
     - -e .
