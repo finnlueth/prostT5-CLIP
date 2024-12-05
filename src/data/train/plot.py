@@ -74,3 +74,18 @@ plt.xticks(rotation=45, ha='right', fontsize=10)
 plt.legend(title="Category", fontsize=10)
 plt.tight_layout()
 plt.show()
+
+train_test_counts = data['test_or_train'].value_counts()
+plt.figure(figsize=(8, 8))
+train_test_counts.plot(
+    kind='pie',
+    autopct='%1.1f%%',
+    startangle=90,
+    colors=['steelblue', 'salmon'],
+    labels=['Train', 'Test'],
+    explode=[0.05, 0]
+)
+plt.title("Proportion of Train vs Test Sets", fontsize=16)
+plt.ylabel('')
+plt.tight_layout()
+plt.show()
