@@ -26,7 +26,7 @@ micromamba deactivate
 ## Docker
 
 ```sh
-docker container run -it --cpus 8 --memory 32G --gpus 1 -d --env-file ~/.docker_config/env.list \
+docker container run -it --cpus 8 --memory 32G --gpus all -d --env-file ~/.docker_config/env.list \
 -v $(pwd -P)/:/home/lfi/mnt/dev/ \
 -v /mnt/project/data/lfi/huggingface:/home/lfi/.cache/huggingface \
 -v /mnt/bio/home/lfi/.cursor-server:/home/lfi/.cursor-server \
