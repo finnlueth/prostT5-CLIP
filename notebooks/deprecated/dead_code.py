@@ -86,3 +86,16 @@
 # dataset[split] = dataset[split].add_column(
 #     "attention_mask", [{"sequence": seq, "text": txt} for seq, txt in zip(tknz_plm["attention_mask"], tknz_llm["attention_mask"])]
 # )
+
+
+
+
+
+ # features_plm = {
+        #     'input_ids': [feature['input_ids_sequence'] for feature in features],
+        #     'attention_mask': [feature['attention_mask_sequence'] for feature in features]
+        # }
+        # features_llm = {
+        #     'input_ids': [feature['input_ids_text'] for feature in features],
+        #     'attention_mask': [feature['attention_mask_text'] for feature in features]
+        # }
