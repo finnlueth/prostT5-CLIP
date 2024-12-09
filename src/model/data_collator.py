@@ -16,12 +16,28 @@ class DataCollatorForProtT5CLIP:
     return_tensors: str = "pt"
 
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        
+        # print(features)
+        # print(len(features))
+        # print(*features[0])
+        
+        
         features_plm = {'input_ids': [], 'attention_mask': []}
         features_llm = {'input_ids': [], 'attention_mask': []}
         for feature in features:
-            for k, v in feature.items():
-                features_plm[k].append(v['sequence'])
-                features_llm[k].append(v['text'])
+            features_plm['input_ids'].append(feature['input_ids_sequence'])
+            features_plm['attention_mask'].append(feature['attention_mask_sequence'])
+            features_llm['input_ids'].append(feature['input_ids_text'])
+            features_llm['attention_mask'].append(feature['attention_mask_text'])
+            
+        # features_plm = {
+        #     'input_ids': [feature['input_ids_sequence'] for feature in features],
+        #     'attention_mask': [feature['attention_mask_sequence'] for feature in features]
+        # }
+        # features_llm = {
+        #     'input_ids': [feature['input_ids_text'] for feature in features],
+        #     'attention_mask': [feature['attention_mask_text'] for feature in features]
+        # }
 
         batch_plm = pad_without_fast_tokenizer_warning(
             self.tokenizer_plm,
@@ -41,6 +57,11 @@ class DataCollatorForProtT5CLIP:
             return_tensors="pt",
         )
         
+        # print(*batch_plm['input_ids'][0].tolist(), sep='\t')
+        # print(*batch_plm['attention_mask'][0].tolist(), sep='\t')
+        # print(*batch_llm['input_ids'][0].tolist(), sep='\t')
+        # print(*batch_llm['attention_mask'][0].tolist(), sep='\t')
+                
         # print("batch_plm: ", batch_plm)
         # print("batch_llm: ", batch_llm)
 
