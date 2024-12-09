@@ -50,19 +50,12 @@ plt.ylabel('Count', fontsize=12)
 plt.tight_layout()
 plt.show()
 
-
 plt.figure(figsize=(10, 6))
 top_species = metadata_df['species'].value_counts().head(10)
 top_species.plot(kind='bar', color='orange')
 plt.title('Top 10 Species with Most Entries', fontsize=14)
 plt.xlabel('Species', fontsize=12)
 plt.ylabel('Count', fontsize=12)
-plt.tight_layout()
-plt.show()
-
-plt.figure(figsize=(8, 6))
-sns.heatmap(metadata_df[['length', 'num_terms']].corr(), annot=True, cmap='coolwarm', cbar_kws={'shrink': 0.8})
-plt.title('Correlation Heatmap', fontsize=14)
 plt.tight_layout()
 plt.show()
 
