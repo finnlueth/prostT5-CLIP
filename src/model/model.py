@@ -186,34 +186,41 @@ class ProtT5CLIP(PreTrainedModel):
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        if input_ids_sequence is not None:
+        if input_ids_sequence:
             protein_outputs = self.encode_protein(
                 protein_ids=input_ids_sequence,
                 protein_attention_mask=attention_mask_sequence,
             )
             protein_embeds = protein_outputs["last_hidden_state"]
+            proj_protein_embeds = self.protein_projection(protein_embeds)
         else:
             protein_outputs = None
             protein_embeds = None
+            proj_protein_embeds = None
 
-        if input_ids_text is not None:
+        if input_ids_text:
             text_outputs = self.encode_text(
                 text_ids=input_ids_text,
                 text_attention_mask=attention_mask_text,
             )
             text_embeds = text_outputs["hidden_states"][-1]
+            proj_text_embeds = self.text_projection(text_embeds)
         else:
             text_outputs = None
             text_embeds = None
+            proj_text_embeds = None
+            
+        print(proj_protein_embeds.shape)
+        print(proj_text_embeds.shape)
+        print(protein_embeds.shape)
+        print(text_embeds.shape)
 
         # TODO: check if this is needed or ask somebody about it
         # if attention_mask is not None:
         #     protein_embeds = protein_embeds * attention_mask["attention_mask_sequence"].unsqueeze(-1)
         #     text_embeds = text_embeds * attention_mask["attention_mask_text"].unsqueeze(-1)
         
-        if self.training:
-            proj_protein_embeds = self.protein_projection(protein_embeds)
-            proj_text_embeds = self.text_projection(text_embeds)
+        if proj_text_embeds and proj_protein_embeds:
 
             proj_protein_embeds = torch.mean(proj_protein_embeds, dim=1)
             proj_text_embeds = torch.mean(proj_text_embeds, dim=1)
