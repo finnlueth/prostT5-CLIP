@@ -165,4 +165,4 @@ cython_debug/
 tmp/
 .DS_Store
 
-data
+tmp\data
