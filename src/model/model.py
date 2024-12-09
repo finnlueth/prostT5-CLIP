@@ -47,6 +47,7 @@ def _switch_phi_padding_direction(hidden_states, attention_mask):
         Returns:
             Adjusted hidden states with same shape but meaningful tokens at start
         """
+        print("switch_phi_padding_direction")
         batch_size = hidden_states.shape[0]
         
         adjusted_hidden_states = []
@@ -186,7 +187,7 @@ class ProtT5CLIP(PreTrainedModel):
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
-        if input_ids_sequence:
+        if input_ids_sequence is not None:
             protein_outputs = self.encode_protein(
                 protein_ids=input_ids_sequence,
                 protein_attention_mask=attention_mask_sequence,
@@ -198,7 +199,7 @@ class ProtT5CLIP(PreTrainedModel):
             protein_embeds = None
             proj_protein_embeds = None
 
-        if input_ids_text:
+        if input_ids_text is not None:
             text_outputs = self.encode_text(
                 text_ids=input_ids_text,
                 text_attention_mask=attention_mask_text,
@@ -220,7 +221,7 @@ class ProtT5CLIP(PreTrainedModel):
         #     protein_embeds = protein_embeds * attention_mask["attention_mask_sequence"].unsqueeze(-1)
         #     text_embeds = text_embeds * attention_mask["attention_mask_text"].unsqueeze(-1)
         
-        if proj_text_embeds and proj_protein_embeds:
+        if proj_text_embeds is not None and proj_protein_embeds is not None:
 
             proj_protein_embeds = torch.mean(proj_protein_embeds, dim=1)
             proj_text_embeds = torch.mean(proj_text_embeds, dim=1)
