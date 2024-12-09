@@ -1,61 +1,79 @@
-import csv
-import math
-from collections import defaultdict
+import pandas as pd
+import numpy as np
+def cafa_f1_per_protein(predictions, true_labels, sentence_to_go_mapping, ic_values):
 
-def load_go_terms(file_path):
-    go_map = {}
-    with open(file_path, 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            go_map[row['text'].lower()] = row['uid']
-    return go_map
+    metrics_per_protein = {}
 
-def sentences_to_go_terms(sentences, go_map):
-    go_terms = []
-    for sentence in sentences:
-        sentence = sentence.lower()
-        if sentence in go_map:
-            go_terms.append(go_map[sentence])
-    return go_terms
+    for protein_id, predicted_sentences in predictions.items():
 
-def add_ic(go_terms):
-    return {term: 1.0 for term in go_terms}
-
-def calculate_metrics(predicted_terms, true_terms, ic_values):
-    tp = set(predicted_terms) & set(true_terms)
-    fp = set(predicted_terms) - set(true_terms)
-    fn = set(true_terms) - set(predicted_terms)
-
-    weighted_tp = sum(ic_values[term] for term in tp)
-    weighted_fp = sum(ic_values[term] for term in fp)
-    weighted_fn = sum(ic_values[term] for term in fn)
-
-    precision = weighted_tp / (weighted_tp + weighted_fp) if (weighted_tp + weighted_fp) > 0 else 0
-    recall = weighted_tp / (weighted_tp + weighted_fn) if (weighted_tp + weighted_fn) > 0 else 0
-
-    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-
-    return precision, recall, f1
-
-def cafa_evaluation(input_sentences, true_go_terms, go_terms_file):
-    go_map = load_go_terms(go_terms_file)
-    predicted_go_terms = sentences_to_go_terms(input_sentences, go_map)
-    ic_values = add_ic(set(predicted_go_terms + true_go_terms))
-
-    precision, recall, f1 = calculate_metrics(predicted_go_terms, true_go_terms, ic_values)
-
-    print(f"Predicted GO terms: {predicted_go_terms}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall: {recall:.4f}")
-    print(f"F1 Score: {f1:.4f}")
+        predicted_go_terms = [
+            sentence_to_go_mapping.get(sentence.strip()) for sentence in predicted_sentences
+        ]
+        predicted_go_terms = [term for term in predicted_go_terms if term is not None]
 
 
-input_sentences = [
-    "The biological process is cell morphogenesis.",
-    "The molecular function is RNA binding.",
-    "The cellular component is mitochondrion."
-]
+        true_go_terms = true_labels.get(protein_id, [])
 
-true_go_terms = ["GO:0000902", "GO:0003723", "GO:0005739"]
+        tp = set(predicted_go_terms) & set(true_go_terms)
+        fp = set(predicted_go_terms) - set(true_go_terms)
+        fn = set(true_go_terms) - set(predicted_go_terms)
 
-cafa_evaluation(input_sentences, true_go_terms, 'C:/Users/ameli/OneDrive/Dokumente/go_terms.csv')
+        weighted_tp = sum(ic_values.get(term, 0) for term in tp)
+        weighted_fp = sum(ic_values.get(term, 0) for term in fp)
+        weighted_fn = sum(ic_values.get(term, 0) for term in fn)
+
+        precision = weighted_tp / (weighted_tp + weighted_fp) if (weighted_tp + weighted_fp) > 0 else 0
+        recall = weighted_tp / (weighted_tp + weighted_fn) if (weighted_tp + weighted_fn) > 0 else 0
+        f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+
+        metrics_per_protein[protein_id] = {
+            "Precision": precision,
+            "Recall": recall,
+            "F1": f1
+        }
+
+    return metrics_per_protein
+
+def prepare_5_protein_data():
+
+    predictions = {
+        "Protein1": ["The biological process is metabolic process."],
+        "Protein2": ["The biological process is RNA processing."],
+        "Protein3": ["The biological process is cell division."],
+        "Protein4": ["The biological process is signal transduction."],
+        "Protein5": ["The biological process is protein folding."]
+    }
+
+    true_labels = {
+        "Protein1": ["GO:0008152"],
+        "Protein2": ["GO:0006396"],
+        "Protein3": ["GO:0051301"],
+        "Protein4": ["GO:0007165"],
+        "Protein5": ["GO:0006457"]
+    }
+
+    sentence_to_go_mapping = {
+        "The biological process is metabolic process.": "GO:0008152",
+        "The biological process is RNA processing.": "GO:0006396",
+        "The biological process is cell division.": "GO:0051301",
+        "The biological process is signal transduction.": "GO:0007165",
+        "The biological process is protein folding.": "GO:0006457"
+    }
+
+    ic_values = {
+        "GO:0008152": 12.3,
+        "GO:0006396": 10.5,
+        "GO:0051301": 11.2,
+        "GO:0007165": 9.8,
+        "GO:0006457": 13.1
+    }
+
+    return predictions, true_labels, sentence_to_go_mapping, ic_values
+
+if __name__ == "__main__":
+
+    predictions, true_labels, sentence_to_go_mapping, ic_values = prepare_5_protein_data()
+    metrics = cafa_f1_per_protein(predictions, true_labels, sentence_to_go_mapping, ic_values)
+
+    for protein_id, values in metrics.items():
+        print(f"{protein_id}: Precision = {values['Precision']:.4f}, Recall = {values['Recall']:.4f}, F1 = {values['F1']:.4f}")
