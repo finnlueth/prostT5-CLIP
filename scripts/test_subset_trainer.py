@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 # Load real dataset
-dataset_path = r"C:\Users\49176\Unistuff\PP2\prostT5-CLIP\data\train_val_GO"
+dataset_path = "tmp/data/processed_train_val_GO"
 dataset = load_from_disk(dataset_path)
 
 # Use a subset of 1000 rows from the train split
