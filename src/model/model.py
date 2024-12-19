@@ -47,21 +47,21 @@ def _switch_phi_padding_direction(hidden_states, attention_mask):
         Returns:
             Adjusted hidden states with same shape but meaningful tokens at start
         """
-        print("switch_phi_padding_direction")
+        # print("switch_phi_padding_direction")
         batch_size = hidden_states.shape[0]
-        
+
         adjusted_hidden_states = []
-        for i in range(batch_size): # iterate over batch        
+        for i in range(batch_size): # iterate over batch
             actual_length = attention_mask[i].sum().item()
-            
+
             sequence_embeddings = hidden_states[i]
-            
+
             meaningful_embeddings = sequence_embeddings[-actual_length:]
             padding_embeddings = sequence_embeddings[:-actual_length]
-            
+
             adjusted_sequence = torch.cat([meaningful_embeddings, padding_embeddings])
             adjusted_hidden_states.append(adjusted_sequence)
-        
+
         return torch.stack(adjusted_hidden_states)
 
 
@@ -92,18 +92,46 @@ class ProteinTextOutput(ModelOutput):
     text_outputs: Optional[torch.FloatTensor] = None
 
 
+@dataclass
+class ProtT5CLIPConfig(PretrainedConfig):
+    model_type = "prot_t5_clip"
+    
+    def __init__(
+        self,
+        name_or_path_llm=None,
+        name_or_path_plm=None,
+        frozen_llm=False,
+        frozen_plm=False,
+        projection_dim=512,
+        logit_scale_init_value=2.6592,
+        llm_config=None,
+        plm_config=None,
+        **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.name_or_path_llm = name_or_path_llm
+        self.name_or_path_plm = name_or_path_plm
+        self.frozen_llm = frozen_llm
+        self.frozen_plm = frozen_plm
+        self.projection_dim = projection_dim
+        self.logit_scale_init_value = logit_scale_init_value
+        self.llm_config = llm_config
+        self.plm_config = plm_config
+
+
 class ProtT5CLIP(PreTrainedModel):
+    config_class = ProtT5CLIPConfig
     main_input_name = "input_ids_sequence"
 
-    def __init__(self, config: T.Union[dict, PretrainedConfig, CLIPConfig]):
+    def __init__(self, config: ProtT5CLIPConfig):
         super().__init__(config=config)
-        
+
         # device = config.device if config.device else "auto"
         device = "auto"
 
         self.freeze_llm = config.frozen_llm
         self.freeze_plm = config.frozen_plm
-        
+
         self.model_llm, self.loading_info_llm = AutoModelForCausalLM.from_pretrained(
             pretrained_model_name_or_path=config.name_or_path_llm,
             device_map=device,
@@ -111,9 +139,9 @@ class ProtT5CLIP(PreTrainedModel):
             torch_dtype="auto",
             trust_remote_code=True,
         )
-        
+
         llm_dtype = next(self.model_llm.parameters()).dtype
-    
+
         self.model_plm, self.loading_info_plm = T5EncoderModel.from_pretrained(
             pretrained_model_name_or_path=config.name_or_path_plm,
             device_map=device,
@@ -128,11 +156,11 @@ class ProtT5CLIP(PreTrainedModel):
         self.protein_projection = nn.Linear(self.protein_embed_dim, self.projection_dim, bias=False, dtype=llm_dtype)
         self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False, dtype=llm_dtype)
         self.logit_scale = nn.Parameter(torch.tensor(config.logit_scale_init_value, dtype=llm_dtype))
-        
+
         for name, init_func in modeling_utils.TORCH_INIT_FUNCTIONS.items():
             setattr(torch.nn.init, name, init_func)
-            
-            
+
+
 
 
     def encode_protein(
@@ -163,7 +191,7 @@ class ProtT5CLIP(PreTrainedModel):
                 outputs = self.model_llm(input_ids=text_ids, attention_mask=text_attention_mask, output_hidden_states=True)
         else:
             outputs = self.model_llm(input_ids=text_ids, attention_mask=text_attention_mask, output_hidden_states=True)
-            
+
         is_phi_model = any('phi' in name.lower() for name in self.model_llm.config.architectures)
         if is_phi_model:
             last_hidden = outputs.hidden_states[-1]
@@ -186,9 +214,7 @@ class ProtT5CLIP(PreTrainedModel):
         print("----")
         print(input_ids_sequence.shape)
         print(input_ids_text.shape)
-        print(attention_mask_sequence.shape)
-        print(attention_mask_text.shape)
-        
+
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -216,17 +242,17 @@ class ProtT5CLIP(PreTrainedModel):
             text_outputs = None
             text_embeds = None
             proj_text_embeds = None
-            
-        print(proj_protein_embeds.shape)
-        print(proj_text_embeds.shape)
-        print(protein_embeds.shape)
-        print(text_embeds.shape)
+
+        # print(proj_protein_embeds.shape)
+        # print(proj_text_embeds.shape)
+        # print(protein_embeds.shape)
+        # print(text_embeds.shape)
 
         # TODO: check if this is needed or ask somebody about it
         # if attention_mask is not None:
         #     protein_embeds = protein_embeds * attention_mask["attention_mask_sequence"].unsqueeze(-1)
         #     text_embeds = text_embeds * attention_mask["attention_mask_text"].unsqueeze(-1)
-        
+
         if proj_text_embeds is not None and proj_protein_embeds is not None:
 
             proj_protein_embeds = torch.mean(proj_protein_embeds, dim=1)
@@ -234,7 +260,7 @@ class ProtT5CLIP(PreTrainedModel):
 
             proj_protein_embeds = proj_protein_embeds / _get_vector_norm(proj_protein_embeds)
             proj_text_embeds = proj_text_embeds / _get_vector_norm(proj_text_embeds)
-            
+
             logit_scale = self.logit_scale.exp()
             logits_per_text = torch.matmul(proj_text_embeds, proj_protein_embeds.t().to(proj_text_embeds.device)) * logit_scale.to(
                 proj_text_embeds.device
@@ -244,8 +270,8 @@ class ProtT5CLIP(PreTrainedModel):
             loss = None
             if input_ids_sequence is not None and input_ids_text is not None:
                 loss = clip_loss(logits_per_text)
-            
-            
+
+
         if not return_dict:
             output = (logits_per_protein, logits_per_text, text_embeds, protein_embeds, text_outputs, protein_outputs)
             return ((loss,) + output) if loss is not None else output

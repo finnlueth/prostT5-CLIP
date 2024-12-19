@@ -28,20 +28,21 @@ class ProteinSampleSubsetTrainer(Trainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.protein_groups = _group_by_protein(self.train_dataset)
+        self.base_dataset = self.train_dataset
 
     def _sample_subset(self):
         """Sample one text-pair per protein."""
         sampled_indices = [random.choice(indices) for indices in self.protein_groups.values()]
         selected_dataset = self.train_dataset.select(sampled_indices)
-        # selected_dataset = selected_dataset.flatten_indices()
         return selected_dataset
 
+    # based on https://github.com/huggingface/transformers/blob/v4.47.0/src/transformers/trainer.py#L978
     def get_train_dataloader(self) -> DataLoader:
         if self.train_dataset is None:
             raise ValueError("Trainer: training requires a train_dataset.")
 
         train_dataset = self._sample_subset()
-        # train_dataset = self.train_dataset
+        self.train_dataset = train_dataset
         
         data_collator = self.data_collator
         if is_datasets_available() and isinstance(train_dataset, datasets.Dataset):
