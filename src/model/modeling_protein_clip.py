@@ -20,6 +20,8 @@ from transformers.models.clip.modeling_clip import (
 )
 
 from src.model.configuration_protein_clip import ProtT5CLIPConfig
+
+
 def _switch_phi_padding_side(hidden_states, attention_mask):
     """
     Adjusts embeddings from Phi models to move meaningful tokens to the start.
@@ -43,7 +45,8 @@ def _switch_phi_padding_side(hidden_states, attention_mask):
         adjusted_sequence = torch.cat([meaningful_embeddings, padding_embeddings])
         adjusted_hidden_states.append(adjusted_sequence)
 
-    return torch.stack(adjusted_hidden_states)
+    adjusted_hidden_states = torch.stack(adjusted_hidden_states)
+    return adjusted_hidden_states
 
 
 @dataclass
@@ -127,7 +130,6 @@ class ProtT5CLIP(PreTrainedModel):
         text_ids=None,
         text_attention_mask=None,
     ):
-
         outputs = self.model_llm(input_ids=text_ids, attention_mask=text_attention_mask, output_hidden_states=True)
 
         is_phi_model = any("phi" in name.lower() for name in self.model_llm.config.architectures)
@@ -149,6 +151,9 @@ class ProtT5CLIP(PreTrainedModel):
         return_dict: Optional[bool] = None,
         **kwargs,
     ):
+        print("------------------------------- forward -------------------------------")
+        print("input_ids_sequence", input_ids_sequence)
+        print("input_ids_text", input_ids_text)
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict

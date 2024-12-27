@@ -64,4 +64,7 @@ class ProteinSampleSubsetTrainer(Trainer):
             dataloader_params["worker_init_fn"] = seed_worker
             dataloader_params["prefetch_factor"] = self.args.dataloader_prefetch_factor
 
-        return self.accelerator.prepare(DataLoader(train_dataset, **dataloader_params))
+            
+        dataloader = self.accelerator.prepare(DataLoader(train_dataset, **dataloader_params))
+        self.train_dataset = self.base_dataset
+        return dataloader
