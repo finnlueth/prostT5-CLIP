@@ -74,6 +74,8 @@ class ProteinTextOutput(ModelOutput):
     text_embeds: Optional[torch.FloatTensor] = None
     protein_outputs: Optional[torch.FloatTensor] = None
     text_outputs: Optional[torch.FloatTensor] = None
+    proj_protein_embeds: Optional[torch.FloatTensor] = None
+    proj_text_embeds: Optional[torch.FloatTensor] = None
 
 
 class ProtT5CLIP(PreTrainedModel):
@@ -151,12 +153,19 @@ class ProtT5CLIP(PreTrainedModel):
         return_dict: Optional[bool] = None,
         **kwargs,
     ):
-        print("------------------------------- forward -------------------------------")
-        print("input_ids_sequence", input_ids_sequence)
-        print("input_ids_text", input_ids_text)
+        # print("------------------------------- forward -------------------------------")
+        # print("input_ids_sequence", input_ids_sequence)
+        # print("input_ids_text", input_ids_text)
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+        
+        logits_per_protein = None
+        logits_per_text = None
+        protein_embeds = None
+        text_embeds = None
+        protein_outputs = None
+        text_outputs = None
 
         if input_ids_sequence is not None:
             protein_outputs = self.encode_protein(
@@ -182,16 +191,12 @@ class ProtT5CLIP(PreTrainedModel):
             text_embeds = None
             proj_text_embeds = None
 
-        # print(proj_protein_embeds.shape)
-        # print(proj_text_embeds.shape)
-        # print(protein_embeds.shape)
-        # print(text_embeds.shape)
-
         # TODO: check if this is needed or ask somebody about it
         # if attention_mask is not None:
         #     protein_embeds = protein_embeds * attention_mask["attention_mask_sequence"].unsqueeze(-1)
         #     text_embeds = text_embeds * attention_mask["attention_mask_text"].unsqueeze(-1)
 
+        loss = None
         if proj_text_embeds is not None and proj_protein_embeds is not None:
             proj_protein_embeds = torch.mean(proj_protein_embeds, dim=1)
             proj_text_embeds = torch.mean(proj_text_embeds, dim=1)
@@ -205,7 +210,6 @@ class ProtT5CLIP(PreTrainedModel):
             ) * logit_scale.to(proj_text_embeds.device)
             logits_per_protein = logits_per_text.t()
 
-            loss = None
             if input_ids_sequence is not None and input_ids_text is not None:
                 loss = clip_loss(logits_per_text)
 
@@ -220,4 +224,6 @@ class ProtT5CLIP(PreTrainedModel):
             text_embeds=text_embeds,
             protein_outputs=protein_outputs,
             text_outputs=text_outputs,
+            proj_protein_embeds=proj_protein_embeds,
+            proj_text_embeds=proj_text_embeds,
         )

@@ -26,7 +26,7 @@ def get_model_info(model):
     return "\n".join(info)
 
 
-def compare_models(model1, model2, verbose=False):
+def compare_model_parameters_state_dicts(model1, model2, verbose=False):
     """
     Compare two models parameter by parameter.
     
