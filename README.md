@@ -29,7 +29,7 @@ micromamba deactivate
 docker container run -it --cpus 8 --memory 32G --gpus all -d --env-file ~/.docker_config/env.list \
 -v $(pwd -P)/:/home/lfi/mnt/dev/ \
 -v /mnt/project/data/lfi/huggingface:/home/lfi/.cache/huggingface \
--v /mnt/bio/home/lfi/.cursor-server:/home/lfi/.cursor-server \
+-v /mnt/project/data/lfi/.cursor-server:/home/lfi/.cursor-server \
 --name finn-container-prostt5-clip finn-image 
 
 docker container start finn-container-prostt5-clip
