@@ -1,34 +1,0 @@
-wandb: Using wandb-core as the SDK backend.  Please refer to https://wandb.me/wandb-core for more information.
-2024/12/08 22:40:53 INFO server is running addr=127.0.0.1:34993
-2024/12/08 22:40:53 INFO Will exit if parent process dies. ppid=332104
-2024/12/08 22:40:53 INFO connection: ManageConnectionData: new connection created id=127.0.0.1:45490
-wandb: Currently logged in as: finnlueth (finnlueth-organization). Use `wandb login --relogin` to force relogin
-2024/12/08 22:40:54 INFO handleInformInit: received streamId=tv87mmao id=127.0.0.1:45490
-2024/12/08 22:40:54 INFO handleInformInit: stream started streamId=tv87mmao id=127.0.0.1:45490
-wandb: Tracking run with wandb version 0.19.0
-wandb: Run data is saved locally in /home/lfi/mnt/dev/wandb/run-20241208_224054-tv87mmao
-wandb: Run `wandb offline` to turn off syncing.
-wandb: Syncing run protT5-CLIP-2024-12-08-22-40-53
-wandb: ⭐️ View project at https://wandb.ai/finnlueth-organization/protT5-CLIP
-wandb: 🚀 View run at https://wandb.ai/finnlueth-organization/protT5-CLIP/runs/tv87mmao
-`flash-attention` package not found, consider installing for better performance: No module named 'flash_attn'.
-Current `flash-attention` does not support `window_size`. Either upgrade or use `attn_implementation='eager'`.
-Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:02<00:02,  2.55s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.90s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:03<00:00,  1.99s/it]
-Detected kernel version 4.15.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
-target_modules: ['q', 'k', 'v', 'o', 'k_proj', 'q_proj', 'v_proj', 'o_proj', 'gate_proj', 'down_proj', 'up_proj']
-modules_to_save: ['protein_projection', 'text_projection']
-trainable params: 12,582,912 || all params: 5,045,998,593 || trainable%: 0.2494
-Loading processed dataset from disk...
-DatasetDict({
-    train: Dataset({
-        features: ['input_ids', 'attention_mask'],
-        num_rows: 896917
-    })
-    valid: Dataset({
-        features: ['input_ids', 'attention_mask'],
-        num_rows: 221346
-    })
-})
-{'input_ids': {'sequence': [19, 20, 7, 11, 12, 6, 18, 3, 22, 4, 4, 3, 4, 3, 6, 15, 6, 3, 4, 20, 5, 11, 13, 4, 3, 3, 4, 3, 9, 17, 5, 9, 5, 11, 11, 16, 13, 10, 18, 10, 17, 7, 11, 10, 18, 18, 17, 18, 9, 10, 15, 14, 22, 11, 22, 13, 3, 13, 20, 4, 17, 17, 11, 17, 5, 11, 6, 19, 14, 13, 12, 5, 22, 18, 18, 11, 22, 17, 6, 11, 8, 22, 11, 3, 13, 10, 11, 18, 13, 22, 18, 17, 4, 11, 9, 20, 16, 3, 14, 17, 4, 11, 11, 7, 13, 11, 11, 4, 22, 3, 6, 5, 17, 22, 10, 20, 5, 12, 22, 6, 13, 17, 5, 11, 14, 9, 4, 22, 15, 14, 3, 13, 17, 4, 9, 9, 1], 'text': [450, 4768, 5996, 1889, 338, 8178, 1072, 2785, 310, 5094, 17082, 457, 6354, 29889]}, 'attention_mask': {'sequence': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], 'text': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}}
-  0%|          | 0/34497 [00:00<?, ?it/s]You are not running the flash-attention implementation, expect numerical differences.
-  0%|          | 1/34497 [00:08<84:49:53,  8.85s/it]                                                      0%|          | 1/34497 [00:08<84:49:53,  8.85s/it]  0%|          | 2/34497 [00:15<74:15:31,  7.75s/it]                                                      0%|          | 2/34497 [00:15<74:15:31,  7.75s/it]  0%|          | 3/34497 [00:22<71:22:03,  7.45s/it]                                                      0%|          | 3/34497 [00:22<71:22:03,  7.45s/it]  0%|          | 4/34497 [00:29<69:57:06,  7.30s/it]                                                      0%|          | 4/34497 [00:29<69:57:06,  7.30s/it]  0%|          | 5/34497 [00:37<71:20:44,  7.45s/it]                                                      0%|          | 5/34497 [00:37<71:20:44,  7.45s/it]  0%|          | 6/34497 [00:45<72:12:54,  7.54s/it]                                                      0%|          | 6/34497 [00:45<72:12:54,  7.54s/it]  0%|          | 7/34497 [00:52<71:30:29,  7.46s/it]                                                      0%|          | 7/34497 [00:52<71:30:29,  7.46s/it]  0%|          | 8/34497 [01:00<71:56:35,  7.51s/it]                                                      0%|          | 8/34497 [01:00<71:56:35,  7.51s/it]2024/12/08 22:42:41 INFO Parent process exited, terminating service process.

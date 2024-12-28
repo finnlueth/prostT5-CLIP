@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[12]:
+# In[3]:
 
 
-get_ipython().system('jupyter nbconvert --to script train_clip_model.ipynb')
+get_ipython().system('jupyter nbconvert --to python train_clip_model.ipynb --TagRemovePreprocessor.enabled=True --TagRemovePreprocessor.remove_cell_tags')
 
 
-# In[1]:
+# In[ ]:
 
 
 get_ipython().run_line_magic('reload_ext', 'autoreload')
@@ -16,7 +16,7 @@ get_ipython().run_line_magic('autoreload', '2')
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 # os.environ["HF_DATASETS_OFFLINE"] = "1"
 # os.environ["HF_HUB_OFFLINE"] = "1"
@@ -49,6 +49,10 @@ from peft import (
     get_peft_model,
 )
 
+pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
+torch.set_printoptions(profile="full")
+
 device = "cuda:0" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
 
 model_name_identifier = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
@@ -57,15 +61,14 @@ USE_WANDB = False
 
 if USE_WANDB:
     import wandb
-
     run = wandb.init(project="protT5-CLIP", name=f"protT5-CLIP-{datetime.now().strftime('%Y-%m-%d-%H-%M-%S')}")
 
-report_to = "wandb" if USE_WANDB else None
+report_to = "wandb"
 
 print("Using device:", device)
 
 
-# In[2]:
+# In[ ]:
 
 
 plm_config = AutoConfig.from_pretrained("Rostlab/prot_t5_xl_uniref50")
@@ -87,28 +90,20 @@ model = ProtT5CLIP(model_config)
 print("Loaded model...")
 
 
-# In[3]:
-
-
-model
-
-
-# In[4]:
+# In[ ]:
 
 
 target_modules = []
 modules_to_save = ["protein_projection", "text_projection"]
-
 
 target_modules += TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING['t5']
 # target_modules += ["q", "k", "v", "o"]
 # target_modules += [f"model_plm.encoder.block.{x}" for x in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING['t5']]
 modules_to_save += model.loading_info_plm["missing_keys"]
 
-
 target_modules += ["qkv_proj"]
+# target_modules += ["qkv_proj", "o_proj"]
 # target_modules += TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING['phi']
-# target_modules += ["k_proj", "q_proj", "v_proj", "o_proj", "gate_proj", "down_proj", "up_proj"]
 # target_modules += [f"model_llm.model.{x}" for x  in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING['phi']]
 modules_to_save += model.loading_info_llm["missing_keys"]
 
@@ -126,36 +121,15 @@ lora_config = LoraConfig(
 )
 
 model = get_peft_model(model, lora_config)
+model.to(device)
+model.to(torch.bfloat16)
+
 print("target_modules:", target_modules)
 print("modules_to_save:", modules_to_save)
 model.print_trainable_parameters()
 
 
-# In[5]:
-
-
-model.base_model.model.model_llm.model.layers[22].self_attn.qkv_proj.weight.shape
-
-
-# In[6]:
-
-
-model.base_model.model.text_projection.original_module.weight
-
-
-# In[7]:
-
-
-model.base_model.model.text_projection.modules_to_save.default.weight
-
-
-# In[8]:
-
-
-model
-
-
-# In[6]:
+# In[11]:
 
 
 tokenizer_plm = T5Tokenizer.from_pretrained(
@@ -180,8 +154,14 @@ if not os.path.exists(dataset_path_processed):
     print("Processing dataset...")
     dataset = load_from_disk(dataset_path)
 
-    for split in ["train"]:  # dataset:
-        tknz_plm = tokenizer_plm(text=dataset[split]["sequence"], padding=False, truncation=False)
+    for split in dataset:
+        print(f"Processing {split}, {len(dataset[split])} items.")
+
+        dataset[split] = dataset[split].filter(lambda x: len(x["sequence"]) < 256)
+        processed_sequences = [" ".join(list(re.sub(r"[UZOB]", "X", seq))) for seq in dataset[split]['sequence']]
+        dataset[split] = dataset[split].add_column("sequence_processed", processed_sequences)
+        
+        tknz_plm = tokenizer_plm(text=dataset[split]["sequence_processed"], padding=False, truncation=False)
         tknz_llm = tokenizer_llm(text=dataset[split]["GO Sentence"], padding=False, truncation=False)
 
         dataset[split] = dataset[split].add_column("input_ids_sequence", tknz_plm["input_ids"])
@@ -201,19 +181,16 @@ print(dataset["train"][0])
 # In[ ]:
 
 
-model.to(device)
-model.to(torch.bfloat16)
-
 data_collator = DataCollatorForProtT5CLIP(
     tokenizer_plm=tokenizer_plm, tokenizer_llm=tokenizer_llm, padding=True, pad_to_multiple_of=8
 )
 
 training_args = TrainingArguments(
     output_dir=f"../tmp/models/checkpoints/{model_name_identifier}",
-    # run_name=run.name if USE_WANDB else None,
-    # report_to=report_to,
+    run_name=run.name if USE_WANDB else None,
+    report_to=report_to,
     learning_rate=1e-3,
-    per_device_train_batch_size=2,#26,
+    per_device_train_batch_size=16,
     # per_device_eval_batch_size=16,
     num_train_epochs=1,
     logging_steps=1,
@@ -227,7 +204,6 @@ training_args = TrainingArguments(
     seed=69420,
 )
 
-
 def compute_metrics(eval_preds):
     return {
         "loss": 1.0,
@@ -236,7 +212,6 @@ def compute_metrics(eval_preds):
         "recall": 0.5,
         "f1": 0.5,
     }
-
 
 trainer = ProteinSampleSubsetTrainer(
     model=model,
@@ -251,24 +226,20 @@ trainer = ProteinSampleSubsetTrainer(
 # In[ ]:
 
 
-gc.collect()
+trainer.train()
 
-pd.set_option("display.max_columns", None)
-pd.set_option("display.max_rows", None)
-torch.set_printoptions(profile="full")
+gc.collect()
 
 if torch.cuda.is_available():
     torch.cuda.empty_cache()
 if torch.backends.mps.is_available():
     torch.mps.empty_cache()
 
-trainer.train()
-
 
 # ---
 # # Model saving
 
-# In[10]:
+# In[24]:
 
 
 from src.model.utils import get_model_info, compare_models
@@ -298,6 +269,9 @@ print("Loading adapter from:", model_save_path)
 
 
 reloaded_model_fresh = ProtT5CLIP(model_config)
+reloaded_model_fresh.to(device)
+reloaded_model_fresh.to(torch.bfloat16)
+print("Loading fresh model.")
 
 
 # In[ ]:
@@ -311,7 +285,7 @@ display("reloaded_model_fresh")
 display(reloaded_model_fresh)
 
 
-# In[15]:
+# In[29]:
 
 
 # model = model.merge_and_unload()
@@ -320,7 +294,7 @@ display(reloaded_model_fresh)
 # reloaded_model.to("cpu")
 
 
-# In[16]:
+# In[30]:
 
 
 # model.protein_projection.modules_to_save.default.weight[0]
@@ -355,6 +329,104 @@ for index, (name, param) in enumerate(model.named_modules()):
 # Compare the models
 print("Comparing original and reloaded models...")
 models_match = compare_models(reloaded_model, model.base_model.model, verbose=True)
+
+
+# In[ ]:
+
+
+model.base_model.model.text_projection.modules_to_save.default.weight
+
+
+# In[ ]:
+
+
+model.base_model.model.text_projection.original_module.weight
+
+
+# In[ ]:
+
+
+dummy_text = "This is a test protein sequence text"
+dummy_protein = "MLKFVVVLAAVLSLYAYAPAFEVHNKKNVLMQRVGETLRISDRYLYQTLSKPYKVTLKTLDGHEIFEVVGEAPVTFRFKDKERPVVVASPEHVVGIVAVHNGKIYARNLYIQNISIVSAGGQHSYSGLSWRYNQPNDGKVTDYF"
+print(len(dummy_protein))
+dummy_protein = " ".join(list(re.sub(r"[UZOB]", "X", dummy_protein)))
+print(len(dummy_protein))
+
+text_tokens = tokenizer_llm(dummy_text, return_tensors="pt", padding=False, truncation=False)
+protein_tokens = tokenizer_plm(dummy_protein, return_tensors="pt", padding=False, truncation=False)
+
+text_tokens = {k: v.to(model.device) for k, v in text_tokens.items()}
+protein_tokens = {k: v.to(model.device) for k, v in protein_tokens.items()}
+
+print(text_tokens['input_ids'])
+print(protein_tokens)
+
+model.eval()
+with torch.no_grad():
+    text_emb_orig = model(input_ids_text=text_tokens['input_ids'], attention_mask_text=text_tokens['attention_mask'])
+    protein_emb_orig = model(input_ids_sequence=protein_tokens['input_ids'], attention_mask_sequence=protein_tokens['attention_mask'])
+
+reloaded_model_fresh.eval()
+with torch.no_grad():
+    text_emb_reload = reloaded_model_fresh(input_ids_text=text_tokens['input_ids'], attention_mask_text=text_tokens['attention_mask'])
+    protein_emb_reload = reloaded_model_fresh(input_ids_sequence=protein_tokens['input_ids'], attention_mask_sequence=protein_tokens['attention_mask'])
+
+
+text_match = torch.allclose(text_emb_orig.proj_text_embeds, text_emb_reload.proj_text_embeds, rtol=1e-4, atol=1e-4)
+protein_match = torch.allclose(protein_emb_orig.proj_protein_embeds, protein_emb_reload.proj_protein_embeds, rtol=1e-4, atol=1e-4)
+
+text_exact_match = torch.equal(text_emb_orig.proj_text_embeds, text_emb_reload.proj_text_embeds)
+protein_exact_match = torch.equal(protein_emb_orig.proj_protein_embeds, protein_emb_reload.proj_protein_embeds)
+
+print(f"Text embeddings match: {text_match}")
+print(f"Protein embeddings match: {protein_match}")
+print(f"Text embeddings exact match: {text_exact_match}")
+print(f"Protein embeddings exact match: {protein_exact_match}")
+
+print("\nSample text embeddings (first 5 dimensions):")
+print("Original:", text_emb_orig.proj_text_embeds[0,:2,:10])
+print("Reloaded:", text_emb_reload.proj_text_embeds[0,:2,:10])
+
+print("\nSample protein embeddings (first 5 dimensions):")
+print("Original:", protein_emb_orig.proj_protein_embeds[0,:2,:10])
+print("Reloaded:", protein_emb_reload.proj_protein_embeds[0,:2,:10])
+
+
+# In[ ]:
+
+
+# Calculate cosine similarity between protein and text projections
+def cosine_similarity(a, b):
+    # Mean pool across sequence length dimension if needed
+    if len(a.shape) > 2:
+        a = torch.mean(a, dim=1)
+    if len(b.shape) > 2:
+        b = torch.mean(b, dim=1)
+    
+    # Normalize vectors
+    a_norm = torch.nn.functional.normalize(a, p=2, dim=-1)
+    b_norm = torch.nn.functional.normalize(b, p=2, dim=-1)
+    
+    # Calculate similarity
+    similarity = torch.matmul(a_norm, b_norm.t())
+    return similarity
+
+# Calculate similarities for original model
+orig_similarity = cosine_similarity(
+    text_emb_orig.proj_text_embeds,
+    protein_emb_orig.proj_protein_embeds
+)
+
+# Calculate similarities for reloaded model
+reload_similarity = cosine_similarity(
+    text_emb_reload.proj_text_embeds,
+    protein_emb_reload.proj_protein_embeds
+)
+
+print("\nCosine similarities:")
+print("Original model:", orig_similarity.item())
+print("Reloaded model:", reload_similarity.item())
+print("Similarity difference:", (orig_similarity - reload_similarity).item())
 
 
 # ### Mismatching

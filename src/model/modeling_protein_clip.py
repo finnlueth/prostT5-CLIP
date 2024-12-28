@@ -4,22 +4,19 @@ import typing as T
 from transformers import (
     AutoModelForCausalLM,
     T5EncoderModel,
-    PretrainedConfig,
-    CLIPConfig,
     PreTrainedModel,
     modeling_utils,
 )
-from transformers.modeling_outputs import ModelOutput
-from dataclasses import dataclass
+
 from typing import Optional
 
 from transformers.models.clip.modeling_clip import (
-    contrastive_loss,
     clip_loss,
     _get_vector_norm,
 )
 
-from src.model.configuration_protein_clip import ProtT5CLIPConfig
+from .configuration_protein_clip import ProtT5CLIPConfig
+from .output_protein_clip import ProteinTextOutput
 
 
 def _switch_phi_padding_side(hidden_states, attention_mask):
@@ -47,35 +44,6 @@ def _switch_phi_padding_side(hidden_states, attention_mask):
 
     adjusted_hidden_states = torch.stack(adjusted_hidden_states)
     return adjusted_hidden_states
-
-
-@dataclass
-class ProteinTextOutput(ModelOutput):
-    """
-    Output type for protein-text models.
-
-    Args:
-        loss (`torch.FloatTensor` of shape `(1,)`, *optional*):
-            Contrastive loss between protein and text embeddings.
-        logits_per_protein (`torch.FloatTensor` of shape `(batch_size, batch_size)`):
-            Similarity between each protein and all texts in the batch.
-        logits_per_text (`torch.FloatTensor` of shape `(batch_size, batch_size)`):
-            Similarity between each text and all proteins in the batch.
-        protein_embeds (`torch.FloatTensor` of shape `(batch_size, hidden_size)`):
-            Protein embeddings.
-        text_embeds (`torch.FloatTensor` of shape `(batch_size, hidden_size)`):
-            Text embeddings.
-    """
-
-    loss: Optional[torch.FloatTensor] = None
-    logits_per_protein: Optional[torch.FloatTensor] = None
-    logits_per_text: Optional[torch.FloatTensor] = None
-    protein_embeds: Optional[torch.FloatTensor] = None
-    text_embeds: Optional[torch.FloatTensor] = None
-    protein_outputs: Optional[torch.FloatTensor] = None
-    text_outputs: Optional[torch.FloatTensor] = None
-    proj_protein_embeds: Optional[torch.FloatTensor] = None
-    proj_text_embeds: Optional[torch.FloatTensor] = None
 
 
 class ProtT5CLIP(PreTrainedModel):
@@ -159,7 +127,7 @@ class ProtT5CLIP(PreTrainedModel):
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        
+
         logits_per_protein = None
         logits_per_text = None
         protein_embeds = None
