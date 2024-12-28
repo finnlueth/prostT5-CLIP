@@ -68,3 +68,14 @@ class ProteinSampleSubsetTrainer(Trainer):
         dataloader = self.accelerator.prepare(DataLoader(train_dataset, **dataloader_params))
         self.train_dataset = self.base_dataset
         return dataloader
+    
+    # TODO: Subset evaluation dataset during training
+    # def get_eval_dataloader(self, eval_dataset=None):
+    #     """
+    #     Samples the evaluation dataset and returns a subset of size self.eval_sample_size.
+    #     """
+    #     if eval_dataset is None:
+    #         eval_dataset = self.eval_dataset
+    #     idxs = random.sample(range(len(eval_dataset)), self.eval_sample_size)
+    #     eval_subset = eval_dataset.select(idxs)
+    #     return super().get_eval_dataloader(eval_subset)

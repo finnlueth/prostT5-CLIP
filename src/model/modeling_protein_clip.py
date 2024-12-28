@@ -46,6 +46,15 @@ def _switch_phi_padding_side(hidden_states, attention_mask):
     return adjusted_hidden_states
 
 
+class LogitScale(nn.Module):
+    def __init__(self, init_value, dtype=torch.float32):
+        super().__init__()
+        self.scale = nn.Parameter(torch.tensor(init_value, dtype=dtype))
+
+    def forward(self):
+        return self.scale
+
+
 class ProtT5CLIP(PreTrainedModel):
     config_class = ProtT5CLIPConfig
     main_input_name = "input_ids_sequence"
@@ -63,22 +72,23 @@ class ProtT5CLIP(PreTrainedModel):
             trust_remote_code=True,
         )
 
-        llm_dtype = next(self.model_llm.parameters()).dtype
-
         self.model_plm, self.loading_info_plm = T5EncoderModel.from_pretrained(
             pretrained_model_name_or_path=config.name_or_path_plm,
             device_map=device_map,
             output_loading_info=True,
-            torch_dtype=llm_dtype,
+            torch_dtype="auto",
         )
 
         self.projection_dim = config.projection_dim
         self.protein_embed_dim = config.plm_config.hidden_size
         self.text_embed_dim = config.llm_config.hidden_size
+        self._dtype = torch.float32
 
-        self.protein_projection = nn.Linear(self.protein_embed_dim, self.projection_dim, bias=False, dtype=llm_dtype)
-        self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False, dtype=llm_dtype)
-        self.logit_scale = nn.Parameter(torch.tensor(config.logit_scale_init_value, dtype=llm_dtype))
+        self.protein_projection = nn.Linear(self.protein_embed_dim, self.projection_dim, bias=False, dtype=self._dtype)
+        self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False, dtype=self._dtype)
+        # self.logit_scale = nn.Parameter(torch.tensor(config.logit_scale_init_value, dtype=self._dtype))
+        self.logit_scale = LogitScale(config.logit_scale_init_value, self._dtype)
+
 
         for name, init_func in modeling_utils.TORCH_INIT_FUNCTIONS.items():
             setattr(torch.nn.init, name, init_func)
@@ -124,6 +134,8 @@ class ProtT5CLIP(PreTrainedModel):
         # print("------------------------------- forward -------------------------------")
         # print("input_ids_sequence", input_ids_sequence)
         # print("input_ids_text", input_ids_text)
+        print("self.logit_scale", self.logit_scale)
+        
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
@@ -140,24 +152,17 @@ class ProtT5CLIP(PreTrainedModel):
                 protein_ids=input_ids_sequence,
                 protein_attention_mask=attention_mask_sequence,
             )
-            protein_embeds = protein_outputs["last_hidden_state"]
+            protein_embeds = protein_outputs["last_hidden_state"].to(self._dtype)
             proj_protein_embeds = self.protein_projection(protein_embeds)
-        else:
-            protein_outputs = None
-            protein_embeds = None
-            proj_protein_embeds = None
 
         if input_ids_text is not None:
             text_outputs = self.encode_text(
                 text_ids=input_ids_text,
                 text_attention_mask=attention_mask_text,
             )
-            text_embeds = text_outputs["hidden_states"][-1]
+            text_embeds = text_outputs["hidden_states"][-1].to(self._dtype)
             proj_text_embeds = self.text_projection(text_embeds)
-        else:
-            text_outputs = None
-            text_embeds = None
-            proj_text_embeds = None
+
 
         # TODO: check if this is needed or ask somebody about it
         # if attention_mask is not None:
@@ -166,16 +171,14 @@ class ProtT5CLIP(PreTrainedModel):
 
         loss = None
         if proj_text_embeds is not None and proj_protein_embeds is not None:
-            proj_protein_embeds = torch.mean(proj_protein_embeds, dim=1)
-            proj_text_embeds = torch.mean(proj_text_embeds, dim=1)
+            pe = torch.mean(proj_protein_embeds, dim=1)
+            te = torch.mean(proj_text_embeds, dim=1)
 
-            proj_protein_embeds = proj_protein_embeds / _get_vector_norm(proj_protein_embeds)
-            proj_text_embeds = proj_text_embeds / _get_vector_norm(proj_text_embeds)
+            pe = pe / _get_vector_norm(pe)
+            te = te / _get_vector_norm(te)
 
             logit_scale = self.logit_scale.exp()
-            logits_per_text = torch.matmul(
-                proj_text_embeds, proj_protein_embeds.t().to(proj_text_embeds.device)
-            ) * logit_scale.to(proj_text_embeds.device)
+            logits_per_text = torch.matmul(te, pe.t()) * logit_scale
             logits_per_protein = logits_per_text.t()
 
             if input_ids_sequence is not None and input_ids_text is not None:
