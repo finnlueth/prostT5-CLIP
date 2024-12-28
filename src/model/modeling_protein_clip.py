@@ -51,7 +51,7 @@ class LogitScale(nn.Module):
         super().__init__()
         self.scale = nn.Parameter(torch.tensor(init_value, dtype=dtype))
 
-    def forward(self):
+    def forward(self, x=None):
         return self.scale
 
 
@@ -134,7 +134,7 @@ class ProtT5CLIP(PreTrainedModel):
         # print("------------------------------- forward -------------------------------")
         # print("input_ids_sequence", input_ids_sequence)
         # print("input_ids_text", input_ids_text)
-        print("self.logit_scale", self.logit_scale)
+        # print("self.logit_scale", self.logit_scale)
         
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -177,7 +177,7 @@ class ProtT5CLIP(PreTrainedModel):
             pe = pe / _get_vector_norm(pe)
             te = te / _get_vector_norm(te)
 
-            logit_scale = self.logit_scale.exp()
+            logit_scale = self.logit_scale(None).exp()
             logits_per_text = torch.matmul(te, pe.t()) * logit_scale
             logits_per_protein = logits_per_text.t()
 

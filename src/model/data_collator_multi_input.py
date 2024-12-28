@@ -43,8 +43,8 @@ class DataCollatorForProtT5CLIP:
             return_tensors="pt",
         )
         
-        print(batch_plm['input_ids'].shape)
-        print(batch_llm['input_ids'].shape)
+        # print(batch_plm['input_ids'].shape)
+        # print(batch_llm['input_ids'].shape)
 
         return {
             "input_ids_sequence": batch_plm["input_ids"],
