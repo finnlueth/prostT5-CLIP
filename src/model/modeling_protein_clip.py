@@ -164,6 +164,8 @@ class ProtT5CLIP(PreTrainedModel):
         text_embeds = None
         protein_outputs = None
         text_outputs = None
+        proj_protein_embeds = None
+        proj_text_embeds = None
 
         if input_ids_sequence is not None:
             protein_outputs = self.encode_protein(

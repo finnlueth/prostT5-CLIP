@@ -138,3 +138,13 @@
 
 #     print("Saving processed dataset to disk...")
 #     dataset.save_to_disk(processed_dataset_path)
+
+
+
+
+
+
+
+
+
+# print("\n".join([x for x, y in model.named_parameters()]))

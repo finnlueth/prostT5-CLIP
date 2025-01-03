@@ -45,3 +45,8 @@ docker container rm finn-container-prostt5-clip
 * Training Code: https://github.com/openai/CLIP/issues/83
 * https://github.com/wukevin/proteinclip
 * https://github.com/pan-emily/protein-clip
+
+
+## Good Checkpoints
+
+- First good train run: protT5-CLIP-2025-01-02-22-58-37
