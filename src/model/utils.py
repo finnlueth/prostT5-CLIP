@@ -38,15 +38,12 @@ def compare_model_parameters_state_dicts(model1, model2, verbose=False):
     Returns:
         bool: True if models are identical, False otherwise
     """
-    # Get state dictionaries
     state_dict1 = model1.state_dict()
     state_dict2 = model2.state_dict()
     
-    # Compare keys
     keys1 = set(state_dict1.keys())
     keys2 = set(state_dict2.keys())
     
-    # Check for missing keys
     missing_in_2 = keys1 - keys2
     missing_in_1 = keys2 - keys1
     
@@ -66,7 +63,6 @@ def compare_model_parameters_state_dicts(model1, model2, verbose=False):
         
         return False
     
-    # Compare parameter values
     parameters_match = True
     mismatched_params = []
     
@@ -74,15 +70,11 @@ def compare_model_parameters_state_dicts(model1, model2, verbose=False):
         param1 = state_dict1[key]
         param2 = state_dict2[key]
         
-        # print(f"Key: {key}")
-        
-        # Check if parameters have same shape
         if param1.shape != param2.shape:
             parameters_match = False
             mismatched_params.append((key, "shape mismatch", param1.shape, param2.shape))
             continue
             
-        # Check if parameters have same values
         if not torch.allclose(param1.float(), param2.float(), rtol=1e-5, atol=1e-8):
             parameters_match = False
             mismatched_params.append((key, "value mismatch", 
@@ -101,3 +93,17 @@ def compare_model_parameters_state_dicts(model1, model2, verbose=False):
     print(f"\nState dictionaries are identical: {parameters_match}")
     
     return parameters_match
+
+
+def check_model_on_cuda(model):
+    """Check if all model parameters are on CUDA device."""
+    if torch.cuda.is_available():
+        cuda_check_failed = False
+        for name, param in model.named_parameters():
+            if not param.is_cuda:
+                print(f"WARNING: Parameter {name} is not on CUDA")
+                cuda_check_failed = True
+        if not cuda_check_failed:
+            print("All model parameters are on CUDA")
+        else:
+            print("Some parameters are not on CUDA - see warnings above")

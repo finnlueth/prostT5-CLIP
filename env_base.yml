@@ -36,6 +36,8 @@ dependencies:
     - h5py
     - protobuf
     - wandbs
+    - accelerate
+    - rust
     # - flash_attn # only CUDA capable machines
   - pip:
     - -e .
