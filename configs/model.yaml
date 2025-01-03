@@ -1,0 +1,37 @@
+project_name: protT5-CLIP
+custom_run_name: ""
+seed: 42
+verbose: false
+weights_and_biases:
+  enabled: false
+  project: prot-clip
+  report_to: wandb
+model:
+  name: ProtT5CLIP
+  protein_encoder_name: Rostlab/prot_t5_xl_uniref50
+  text_encoder_name: microsoft/Phi-3.5-mini-instruct
+  logit_scale_init_value: 2.6592
+  text_projection_dim: 1024
+  protein_projection_dim: 1024
+lora:
+  r: 8
+  lora_alpha: 16
+  lora_dropout: 0.05
+  use_rslora: false
+  use_dora: false
+trainer:
+  learning_rate: 0.0001 # 1e-4 == 0.0001
+  train_batch_size: 16
+  num_epochs: 1
+  eval_batch_size: 16
+  eval_strategy: steps
+  eval_steps: 32
+  eval_on_start: true
+  eval_sample_size: 128
+  batch_eval_metrics: true
+  remove_unused_columns: false
+  save_strategy: steps
+  save_steps: 300
+  save_total_limit: 5
+  logging_strategy: steps
+  logging_steps: 1

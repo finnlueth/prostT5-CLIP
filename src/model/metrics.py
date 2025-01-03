@@ -65,10 +65,6 @@ def compute_metrics(
     # similarities_np = np.abs(similarities_np)
     metrics_accumulator.similarities.extend(similarities_np.tolist())
 
-    print(similarities_np)
-    print(np.max(similarities_np))
-    print(np.max(metrics_accumulator.similarities))
-
     results = metrics_accumulator.accumulate()
     if compute_result:
         metrics_accumulator.reset()
