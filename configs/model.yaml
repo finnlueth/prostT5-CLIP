@@ -3,7 +3,7 @@ custom_run_name: ""
 seed: 42
 verbose: false
 weights_and_biases:
-  enabled: false
+  enabled: true
   project: prot-clip
   report_to: wandb
 model:
@@ -14,6 +14,7 @@ model:
   text_projection_dim: 1024
   protein_projection_dim: 1024
 lora:
+  enabled: true
   r: 8
   lora_alpha: 16
   lora_dropout: 0.05
@@ -22,12 +23,12 @@ lora:
 trainer:
   learning_rate: 0.0001 # 1e-4 == 0.0001
   train_batch_size: 16
-  num_epochs: 1
+  num_epochs: 8
   eval_batch_size: 16
   eval_strategy: steps
   eval_steps: 32
   eval_on_start: true
-  eval_sample_size: 128
+  eval_sample_size: 256
   batch_eval_metrics: true
   remove_unused_columns: false
   save_strategy: steps

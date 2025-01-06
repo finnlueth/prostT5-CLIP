@@ -78,7 +78,7 @@ def setup_environment(train_config):
     return model_name_identifier, device, report_to, (run if USE_WANDB else None), USE_WANDB, SEED
 
 
-def load_model_with_lora(train_config, device):
+def load_clip_model(train_config, device):
     """Load and configure the model"""
     plm_name = train_config["model"]["protein_encoder_name"]
     llm_name = train_config["model"]["text_encoder_name"]
@@ -105,17 +105,20 @@ def load_model_with_lora(train_config, device):
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     gc.collect()
-    
+
     print("Loaded model...")
     utils.check_model_on_cuda(model)
+    return model
 
+
+def apply_lora_to_model(model, train_config):
     target_modules = []
     modules_to_save = ["protein_projection", "text_projection", "logit_scale"]
 
     target_modules += TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING["t5"]
     modules_to_save += model.loading_info_plm["missing_keys"]
 
-    target_modules += ["qkv_proj"]
+    # target_modules += ["qkv_proj"]
     modules_to_save += model.loading_info_llm["missing_keys"]
 
     lora_config = LoraConfig(
@@ -131,12 +134,23 @@ def load_model_with_lora(train_config, device):
     )
 
     model = get_peft_model(model, lora_config)
-    
+
     print("target_modules:", target_modules)
     print("modules_to_save:", modules_to_save)
     model.print_trainable_parameters()
 
     return model
+
+
+def freeze_base_models(model):
+    """Freezes the LLM and PLM base models to prevent backpropagation during training"""
+    for param in model.model_llm.parameters():
+        param.requires_grad = False
+
+    for param in model.model_plm.parameters():
+        param.requires_grad = False
+
+    print("Base LLM and PLM models frozen")
 
 
 def load_tokenizers(train_config):
@@ -212,7 +226,7 @@ def setup_trainer(model, dataset, train_config, model_name_identifier, USE_WANDB
     trainer = ProteinSampleSubsetTrainer(
         model=model,
         args=training_args,
-        train_dataset=dataset["train"].select(range(512)), #!!!
+        train_dataset=dataset["train"],  # .select(range(512)), #!!!
         eval_dataset=dataset["test"],
         data_collator=data_collator,
         compute_metrics=metrics_factory(),
@@ -248,7 +262,7 @@ def save_model_and_logs(model, trainer, model_name_identifier, train_config):
 
     with open(f"{model_save_path}/train_config.yaml", "w") as f:
         yaml.dump(train_config, f, sort_keys=False)
-        
+
     fig = plot_training_history(log_history=pd.DataFrame(trainer.state.log_history), train_config=train_config)
     fig.savefig(f"{model_save_path}/training_history.png")
     plt.close(fig)

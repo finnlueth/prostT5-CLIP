@@ -1,59 +1,66 @@
 import random
 
 import accelerate
-import pandas as pd
 import torch
 import transformers
-import yaml
 from accelerate import Accelerator
 
-# from accelerate.distributed import DistributedDataParallelKwargs
 from src._shared import (
+    apply_lora_to_model,
     load_config,
     load_model_with_lora,
     load_tokenizers,
     prepare_dataset,
+    save_model_and_logs,
     setup_environment,
     setup_trainer,
     train_model,
-    save_model_and_logs,
+    freeze_base_models,
 )
 
 
 def main():
     accelerator = Accelerator()
-    # accelerator = Accelerator(
-    #     kwargs_handlers=[DistributedDataParallelKwargs(find_unused_parameters=True)],
-    #     # Try using gloo backend instead of nccl if issues persist
-    #     kwargs_handlers=[DistributedDataParallelKwargs(backend="gloo")]
-    # )
     
     train_config = load_config()
     
+    # todo: add continue training from checkpoint
+    
     model_name_identifier, device, report_to, run, USE_WANDB, SEED = setup_environment(train_config)
-
-    accelerate.utils.set_seed(SEED)
-    transformers.set_seed(SEED)
-    torch.manual_seed(SEED)
-    random.seed(SEED)
+    model_name_identifier = model_name_identifier + "-ddp"
+    
+    accelerator.wait_for_everyone()
+    
+    accelerate.utils.set_seed(SEED+1)
+    transformers.set_seed(SEED+2)
+    torch.manual_seed(SEED+3)
+    random.seed(SEED+4)
 
     tokenizer_plm, tokenizer_llm = load_tokenizers(train_config)
+    dataset = prepare_dataset(train_config, tokenizer_plm, tokenizer_llm)
 
     model = load_model_with_lora(train_config, accelerator.device)
 
-    dataset = prepare_dataset(train_config, tokenizer_plm, tokenizer_llm)
+    if train_config.lora.enabled:
+        model = apply_lora_to_model(model, train_config)
+    else:
+        freeze_base_models(model)
     
-    print(dataset)
-    print(dataset["train"][0])
-
+    if accelerator.is_main_process:
+        print(dataset)
+        print(dataset["train"][0])
+    
     trainer = setup_trainer(model, dataset, train_config, model_name_identifier, USE_WANDB, tokenizer_plm, tokenizer_llm)
 
     model, trainer = accelerator.prepare(model, trainer)
 
     train_model(trainer)
 
+    accelerator.wait_for_everyone()
+    
     if accelerator.is_main_process:
-        save_model_and_logs(model, trainer, model_name_identifier, train_config)
+        unwrapped_model = accelerator.unwrap_model(model)
+        save_model_and_logs(unwrapped_model, trainer, model_name_identifier, train_config)
 
 
 if __name__ == "__main__":
