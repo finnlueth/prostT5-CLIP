@@ -88,6 +88,8 @@ class ProteinSampleSubsetTrainer(Trainer):
         ):
             return self.accelerator.prepare(self._eval_dataloaders[dataloader_key])
 
+
+        # Use random subset of eval dataset
         eval_dataset = (
             self.eval_dataset[eval_dataset]
             if isinstance(eval_dataset, str)

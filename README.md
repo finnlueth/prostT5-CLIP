@@ -1,4 +1,4 @@
-# prostT5 + CLIP
+# pro(s)tT5 + CLIP
 
 Combining Protein and LLM Embeddings with CLIP for Protein Design and Function Prediction
 
@@ -11,6 +11,20 @@ While CLIP was originally designed to align image and text embeddings, we propos
 The ultimate goals of this project are twofold: 1. Protein Design: Infer protein sequences from textual descriptions of their properties or functions. 2. Function Prediction: Predict protein descriptions from a given sequences.
 
 By leveraging the strengths of both protein and language models, we aim to develop a powerful tool for bidirectional protein-text understanding and generation.
+
+## Training
+for singe gpu training
+```sh
+cd scripts
+python train_clip.py
+```
+or for distributed (multi gpu) training
+```sh
+cd scripts
+accelerate launch train_clip_ddp.py
+
+nohup accelerate launch train_clip_ddp.py &
+```
 
 ## Conda/Micromamba
 

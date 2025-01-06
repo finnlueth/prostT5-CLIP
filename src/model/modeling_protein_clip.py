@@ -121,6 +121,7 @@ class ProtT5CLIP(PreTrainedModel):
             input_ids=protein_ids,
             attention_mask=protein_attention_mask,
         )
+        # todo: for prost t5 add trimming function
         return outputs
 
     def encode_text(
@@ -205,24 +206,24 @@ class ProtT5CLIP(PreTrainedModel):
 
         if not return_dict:
             output = (
-                logits_per_protein,
-                logits_per_text,
-                text_embeds,
-                protein_embeds,
-                # text_outputs,
-                # protein_outputs,
-                proj_protein_embeds,
-                proj_text_embeds,
+                logits_per_protein if self.config.output_logits_per_protein else None,
+                logits_per_text if self.config.output_logits_per_text else None,
+                text_embeds if self.config.output_text_embeds else None,
+                protein_embeds if self.config.output_protein_embeds else None,
+                text_outputs if self.config.output_text_outputs else None,
+                protein_outputs if self.config.output_protein_outputs else None,
+                proj_protein_embeds if self.config.output_proj_protein_embeds else None,
+                proj_text_embeds if self.config.output_proj_text_embeds else None,
             )
             return ((loss,) + output) if loss is not None else output
         return ProteinTextOutput(
             loss=loss,
-            logits_per_protein=logits_per_protein,
-            logits_per_text=logits_per_text,
-            protein_embeds=protein_embeds,
-            text_embeds=text_embeds,
-            # protein_outputs=protein_outputs,
-            # text_outputs=text_outputs,
-            proj_protein_embeds=proj_protein_embeds,
-            proj_text_embeds=proj_text_embeds,
+            logits_per_protein=logits_per_protein if self.config.output_logits_per_protein else None,
+            logits_per_text=logits_per_text if self.config.output_logits_per_text else None,
+            protein_embeds=protein_embeds if self.config.output_protein_embeds else None,
+            text_embeds=text_embeds if self.config.output_text_embeds else None,
+            protein_outputs=protein_outputs if self.config.output_protein_outputs else None,
+            text_outputs=text_outputs if self.config.output_text_outputs else None,
+            proj_protein_embeds=proj_protein_embeds if self.config.output_proj_protein_embeds else None,
+            proj_text_embeds=proj_text_embeds if self.config.output_proj_text_embeds else None,
         )
