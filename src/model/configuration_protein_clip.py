@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class ProtT5CLIPConfig(PretrainedConfig):
-    model_type = "pro(s)t_t5_clip"
+    model_type = "pro(s)t_T5_CLIP"
 
     def __init__(
         self,

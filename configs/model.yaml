@@ -9,7 +9,9 @@ weights_and_biases:
 model:
   name: ProtT5CLIP
   protein_encoder_name: Rostlab/prot_t5_xl_uniref50
+  # protein_encoder_name: Rostlab/ProstT5
   text_encoder_name: microsoft/Phi-3.5-mini-instruct
+  # text_encoder_name: meta-llama/Llama-3.2-1B
   logit_scale_init_value: 2.6592
   text_projection_dim: 1024
   protein_projection_dim: 1024
