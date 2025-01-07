@@ -23,7 +23,7 @@ or for distributed (multi gpu) training
 cd scripts
 accelerate launch train_clip_ddp.py
 
-nohup accelerate launch train_clip_ddp.py &
+nohup accelerate launch --config_file ../configs/accelerate_default_config.yaml train_clip_ddp.py &
 ```
 
 ## Conda/Micromamba

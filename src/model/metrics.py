@@ -19,6 +19,7 @@ class BatchMetricsAccumulator:
             "std_cosine_similarity": np.std(self.similarities),
             "min_cosine_similarity": np.min(self.similarities),
             "max_cosine_similarity": np.max(self.similarities),
+            "all_similarities": self.similarities,
         }
         return metrics
 
