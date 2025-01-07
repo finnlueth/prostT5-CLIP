@@ -2,7 +2,7 @@ from transformers import PretrainedConfig
 from dataclasses import dataclass
 
 
-@dataclass(slots=True)
+@dataclass
 class ProtT5CLIPConfig(PretrainedConfig):
     model_type = "pro(s)t_T5_CLIP"
 

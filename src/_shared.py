@@ -12,6 +12,7 @@ from datasets import load_from_disk
 from peft import (
     LoraConfig,
     get_peft_model,
+    PeftConfig,
 )
 from peft.utils.constants import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from transformers import (
@@ -139,6 +140,18 @@ def apply_lora_to_model(model, train_config):
     print("modules_to_save:", modules_to_save)
     model.print_trainable_parameters()
 
+    return model
+
+
+def apply_peft_to_model(model, train_config):
+    modules_to_save = ["protein_projection", "text_projection", "logit_scale"]
+    
+    peft_config = PeftConfig(
+        inference_mode=False,
+        modules_to_save=modules_to_save,
+    )
+    
+    model = get_peft_model(model, peft_config)
     return model
 
 
