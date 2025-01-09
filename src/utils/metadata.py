@@ -201,7 +201,7 @@ def main():
     params = get_params("metadata")
 
     metadata, sentences = gather_protein_annotations(
-        Path(params["data_folder"]), Path(params["cluster_folder"]), seed=params["seed"]
+        Path(params["data_folder"]), Path(params["cluster_folder"]), seed=params.get("seed", 42)
     )
     metadata.to_csv(Path(params["out"]) / "train_metadata.tsv", sep="\t", index=False)
 

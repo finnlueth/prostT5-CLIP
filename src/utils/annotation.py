@@ -172,18 +172,27 @@ class GOParser(AnnotationParser):
 
     def restore_hierarchy(self, terms: set) -> set:
         """
-        Restore GO hierarchy by adding all the parent terms of the given GO terms.
+        Restore GO hierarchy by adding all the ancestor terms of the given GO terms.
 
         Args:
             terms: Set of GO terms
         Returns:
-            set: Set of redundant Go terms
+            set: Set of redundant GO terms including all ancestors
         """
         redundants = set(terms)
+        visited = set()
+
+        def add_ancestors(term):
+            if term in visited:
+                return
+            visited.add(term)
+            parents = self.go_reversed_hierarchy.get(term, set())
+            for parent in parents:
+                redundants.add(parent)
+                add_ancestors(parent)
 
         for term in terms:
-            parents = self.go_reversed_hierarchy.get(term, [])
-            redundants.update(parents)
+            add_ancestors(term)
 
         return redundants
 
