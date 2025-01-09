@@ -36,7 +36,7 @@ def load_paired_embeddings(
     with h5py.File(inputs[0], "r") as p, h5py.File(inputs[1], "r") as t:
         for _, row in tqdm(metadata.iterrows(), total=len(metadata), desc="Loading embeddings"):
             protein_id = row["EntryID"]
-            go_terms = row["GO_terms"].split(",")
+            go_terms = row["positive_GO"].split(",")
 
             try:
                 prot_emb = p[group][protein_id][()]
@@ -204,8 +204,12 @@ def main():
         title=f"UMAP Projection of Protein Embeddings (n={len(labels)})",
     )
 
-    go_map = pd.read_csv(Path(params["GO"]), sep="\t", names=["term", "namespace"]).set_index("GO_term")["aspect"].to_dict()
-    labels = [go_map.get(go, "unknown") for go in sampled["GO_terms"]]
+    go_map = (
+        pd.read_csv(Path(params["GO"]), sep="\t", names=["term", "namespace"])
+        .set_index("positive_GO")["aspect"]
+        .to_dict()
+    )
+    labels = [go_map.get(go, "unknown") for go in sampled["positive_GO"].str.split(",").explode().unique()]
 
     umap_embedding = get_umap(
         np.array(text_embs),

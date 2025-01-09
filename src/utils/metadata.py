@@ -8,22 +8,26 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from annotation import GOParser
-from config import get_params
 from pyfaidx import Fasta
-from taxonomy import TaxonomyMapper
 from tqdm import tqdm
+
+from src.utils.annotation import GOParser
+from src.utils.config import get_params
+from src.utils.taxonomy import TaxonomyMapper
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def gather_protein_annotations(train_folder: Path, cluster_folder: Path, rep_only: bool = True) -> pd.DataFrame:
+def gather_protein_annotations(
+    train_folder: Path, cluster_folder: Path, seed: int, rep_only: bool = True
+) -> pd.DataFrame:
     """
     Gather all GO terms and aspects for each protein entry.
 
     Args:
         train_folder: Path to the folder with train_terms.tsv, train_taxonomy.tsv, train_sequences.fasta and go-basic.obo
         cluster_folder: Path to the folder with MMseqs cluster results
+        seed: Seed for reproducibility in sampling hard negative labels
         rep_only: only representive sequences of MMseqs
 
     Returns:
@@ -71,7 +75,7 @@ def gather_protein_annotations(train_folder: Path, cluster_folder: Path, rep_onl
     )
 
     mapper = TaxonomyMapper()
-    go_parser = GOParser(train_folder / "go-basic.obo")
+    go_parser = GOParser(train_folder / "go-basic.obo", seed=seed)
     sentences = pd.DataFrame.from_dict(go_parser.go_sentences, orient="index").reset_index(names=["term"])
 
     tqdm.pandas(desc="processing taxonomy")
@@ -81,7 +85,10 @@ def gather_protein_annotations(train_folder: Path, cluster_folder: Path, rep_onl
     prot_len = match_protein_length(result["EntryID"].tolist(), train_folder / "train_sequences.fasta")
     result["length"] = result["EntryID"].map(prot_len)
 
-    result["GO_terms"] = go_parser.get_annotations(result["GO_terms"].tolist())
+    positives, negatives = go_parser.get_annotations(result["GO_terms"].tolist())
+
+    result["positive_GO"] = positives
+    result["negative_GO"] = negatives
 
     return (
         result[
@@ -93,7 +100,8 @@ def gather_protein_annotations(train_folder: Path, cluster_folder: Path, rep_onl
                 "taxonomyID",
                 "num_terms",
                 "aspects",
-                "GO_terms",
+                "positive_GO",
+                "negative_GO",
             ]
         ],
         sentences,
@@ -124,12 +132,10 @@ def plot(metadata: pd.DataFrame, out: str = get_params("plot")["out"]):
         metadata: DataFrame with protein metadata
         out: Path to save the plots
     """
-    ### 1. GO Terms by Protein Length ###
 
     plt.figure(figsize=(12, 6))
     max_length_plot = 3000
 
-    # Hexbin Plot
     plt.subplot(121)
     hexbin_data = metadata[metadata["length"] <= max_length_plot]
     plt.hexbin(hexbin_data["length"], hexbin_data["num_terms"], gridsize=100, cmap="viridis", mincnt=1)
@@ -138,16 +144,17 @@ def plot(metadata: pd.DataFrame, out: str = get_params("plot")["out"]):
     plt.ylabel("Number of GO Terms")
     plt.title("GO Terms by Protein Length")
 
-    # Binned Averages
     plt.subplot(122)
 
     max_length = metadata["length"].max()
-    length_bins = np.linspace(0, min(max_length, 3000), 100)  # Cap at 3000 for better visualization
+    length_bins = np.linspace(0, min(max_length, 3000), 100)
     metadata["length_bin"] = pd.cut(metadata["length"], bins=length_bins)
 
     binned = metadata.groupby("length_bin")["num_terms"].mean().reset_index()
 
-    plt.plot(binned["length_bin"].astype(str), binned["num_terms"], color="green", marker="o", linestyle="-", markersize=2)
+    plt.plot(
+        binned["length_bin"].astype(str), binned["num_terms"], color="green", marker="o", linestyle="-", markersize=2
+    )
     plt.xlabel("Protein Length Bins (aa)")
     plt.ylabel("Average Number of GO Terms")
     plt.title("Binned Average: GO Terms by Protein Length")
@@ -157,8 +164,7 @@ def plot(metadata: pd.DataFrame, out: str = get_params("plot")["out"]):
     plt.savefig(Path(out) / "go_terms_vs_length.png")
     plt.close()
 
-    ### 2. Contrasting GO Terms Before and After Redundancy Reduction ###
-    metadata["num_terms_reduced"] = metadata["GO_terms"].apply(lambda x: len(x.split(",")))
+    metadata["num_terms_reduced"] = metadata["positive_GO"].apply(lambda x: len(x.split(",")))
 
     print(f"Mean number of GO terms before reduction: {metadata['num_terms'].mean()}")
     print(f"Median number of GO terms before reduction: {metadata['num_terms'].median()}")
@@ -190,18 +196,13 @@ def plot(metadata: pd.DataFrame, out: str = get_params("plot")["out"]):
     plt.savefig(Path(out) / "terms_violin_comparison.png")
     plt.close()
 
-    logging.info("Plots saved successfully.")
-
 
 def main():
-    """
-    Generate protein descriptions based on GO terms, protein length and taxonomy.
-    """
-
     params = get_params("metadata")
 
-    metadata, sentences = gather_protein_annotations(Path(params["data_folder"]), Path(params["cluster_folder"]))
-
+    metadata, sentences = gather_protein_annotations(
+        Path(params["data_folder"]), Path(params["cluster_folder"]), seed=params["seed"]
+    )
     metadata.to_csv(Path(params["out"]) / "train_metadata.tsv", sep="\t", index=False)
 
     sentences.to_csv(Path(params["out"]) / "go_sentences.tsv", sep="\t", index=False)
@@ -209,6 +210,8 @@ def main():
     logging.info(f"All protein metadata saved to {params['out']}")
 
     plot(metadata)
+
+    logging.info("Plots saved successfully.")
 
 
 if __name__ == "__main__":

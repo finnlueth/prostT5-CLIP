@@ -174,3 +174,9 @@ notebooks/pLM_embeddings.ipynb
 clusters
 /cafa5
 .vscode/settings.json
+doc.md
+/wandb
+/lightning_logs
+/protein-clip
+output/best-checkpoint.ckpt
+src/models/model.py

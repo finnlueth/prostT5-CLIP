@@ -1,9 +1,11 @@
 import json
 import logging
+import random
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from functools import lru_cache
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import requests
 from joblib import Parallel, delayed
@@ -33,16 +35,26 @@ class AnnotationParser(ABC):
 
 
 class GOParser(AnnotationParser):
-    def __init__(self, go_file: Path):
+    def __init__(self, go_file: Path, seed: int = 42):
         """
         Initialize GO annotation Parser.
 
         Args:
             go_file: Path to the go-basic.obo file
         """
+        random.seed(seed)
         self.go_file = go_file
         self.excludes = set()
         self.go_hierarchy, self.go_names, self.go_sentences = self._parse()
+        self.go_reversed_hierarchy = self._reverse_hierarchy()
+
+    def _reverse_hierarchy(self) -> defaultdict[str, set]:
+        """Create a mapping from child terms to their parent terms."""
+        child2parents = defaultdict(set)
+        for parent, children in self.go_hierarchy.items():
+            for child in children:
+                child2parents[child].add(parent)
+        return child2parents
 
     def _process_hierarchy_chunk(self, chunks: list) -> tuple:
         """Process a chunk of complete GO terms."""
@@ -109,6 +121,7 @@ class GOParser(AnnotationParser):
 
         return hierarchy, names, sentences
 
+    @lru_cache(maxsize=None)
     def _calculate_depths(self) -> dict:
         """Calculate the depth of each GO term in the hierarchy."""
         depths = {}
@@ -134,14 +147,15 @@ class GOParser(AnnotationParser):
 
         return depths
 
-    def _reduce_redundancy(self, terms: set) -> set:
+    @lru_cache(maxsize=None)
+    def _reduce_redundancy(self, terms: frozenset) -> list:
         """
         Remove redundant GO terms by keeping only the most specific (deepest) terms exclusively with is_a relationships.
 
         Args:
             terms: Set of GO terms
         Returns:
-            set: Set of non redundant Go terms
+            list: List of non-redundant GO terms
         """
         non_redundants = set()
 
@@ -154,16 +168,83 @@ class GOParser(AnnotationParser):
         filtered = non_redundants.difference(self.excludes)
         non_redundants = filtered if len(filtered) > 0 else non_redundants
 
-        return non_redundants
+        return sorted(non_redundants)
 
-    def get_annotations(self, terms: List) -> List[str]:
+    def restore_hierarchy(self, terms: set) -> set:
+        """
+        Restore GO hierarchy by adding all the parent terms of the given GO terms.
+
+        Args:
+            terms: Set of GO terms
+        Returns:
+            set: Set of redundant Go terms
+        """
+        redundants = set(terms)
+
+        for term in terms:
+            parents = self.go_reversed_hierarchy.get(term, [])
+            redundants.update(parents)
+
+        return redundants
+
+    def get_negatives(self, go_terms: set, excluded: set) -> Union[set, list]:
+        """
+        Select hard negative GO terms based on hierarchical proximity.
+        If initial sampling from parents' siblings is insufficient, sample from grandparents' siblings.
+
+        Args:
+            go_terms (set): Set of true GO terms for the protein.
+            excluded (set): List of GO terms to exclude from hard negatives.
+        Returns:
+            set: Set of hard negative GO terms.
+        """
+
+        negatives, processed = set(), set()
+        current = set(go_terms)
+
+        while len(negatives) < len(go_terms) and current:
+            discovered = set()
+
+            for term in current:
+                if term in processed:
+                    continue
+
+                parents = self.go_reversed_hierarchy.get(term, set())
+
+                for parent in parents:
+                    siblings = self.go_hierarchy.get(parent, set()) - go_terms
+                    negatives.update(siblings)
+
+                discovered.update(parents)
+                processed.add(term)
+                negatives -= excluded
+
+            current = discovered - processed
+
+        if len(negatives) < len(go_terms):
+            raise ValueError("Not enough hard negatives")
+        if len(negatives) > len(go_terms):
+            negatives = random.sample(sorted(negatives), len(go_terms))
+
+        return negatives
+
+    def get_annotations(self, terms: List) -> tuple:
         """Get GO term annotations from a series of redundant GO terms for proteins.
         Args:
             terms: A List of redundant GO terms lists for proteins
         Returns:
             List: List of non-redundant GO terms (str that joined by ',') for proteins
         """
-        return [",".join(sorted(self._reduce_redundancy(set(t)))) for t in tqdm(terms, desc="Processing GO terms")]
+        positives, negatives = [], []
+
+        for t in tqdm(terms, desc="Processing GO terms"):
+            non_redundant = self._reduce_redundancy(frozenset(t))
+            hard_negatives = self.get_negatives(set(non_redundant), set(t))
+
+            positives.append(",".join(non_redundant))
+            negatives.append(",".join(hard_negatives))
+
+        return positives, negatives
 
     def get_term_names(self, term: str) -> str:
         """Get GO term name from GO ID"""
@@ -194,7 +275,8 @@ class UniprotParser(AnnotationParser):
         """Parse GO annotations from Uniprot"""
         try:
             response = self.session.get(
-                f"https://rest.uniprot.org/uniprotkb/search?query=accession:{prot_id}&fields=go_id&format=tsv", timeout=10
+                f"https://rest.uniprot.org/uniprotkb/search?query=accession:{prot_id}&fields=go_id&format=tsv",
+                timeout=10,
             )
             response.raise_for_status()
 

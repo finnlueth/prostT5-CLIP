@@ -6,6 +6,7 @@ from subprocess import run
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from pyfaidx import Fasta
 
 from src.utils.config import get_params
 
@@ -20,10 +21,12 @@ def cluster_sequences(input_fasta: str, output_dir: str, is_test: bool = False):
     tmp = Path(output_dir) / "tmp"
     tmp.mkdir(parents=True, exist_ok=True)
 
+    process_fasta(Path(input_fasta), params["max_seq_len"])
+
     cmd = [
         "mmseqs",
         "easy-cluster",
-        Path(input_fasta).as_posix(),
+        Path(input_fasta).with_suffix(".filtered.fasta").as_posix(),
         out_dir.as_posix(),
         tmp.as_posix(),
         "-c",
@@ -38,9 +41,6 @@ def cluster_sequences(input_fasta: str, output_dir: str, is_test: bool = False):
         str(params["threads"]),
     ]
 
-    if params["max_seq_len"]:
-        cmd.extend(["--max-seq-len", str(params["max_seq_len"])])
-
     if params["reassign"]:
         cmd.append("--cluster-reassign")
 
@@ -51,8 +51,25 @@ def cluster_sequences(input_fasta: str, output_dir: str, is_test: bool = False):
             shutil.rmtree(tmp)
 
 
+def process_fasta(fasta_path: Path, max_len=1022):
+    """Remove sequences longer than max_len and save their identifiers to a file."""
+    filtered_fasta_path = fasta_path.with_suffix(".filtered.fasta")
+    long_sequences_path = fasta_path.with_suffix(".long_sequences.txt")
+
+    with filtered_fasta_path.open("w") as filtered_fasta, long_sequences_path.open("w") as long_sequences:
+        for header, seq in Fasta(str(fasta_path)).items():
+            if len(seq) > max_len:
+                long_sequences.write(f"{header.split()[0]}\n")
+            else:
+                filtered_fasta.write(f">{header}\n{seq}\n")
+
+    return filtered_fasta_path
+
+
 def plot(params: dict):
-    train_clustered = pd.read_csv(Path(params["out"]) / "train_cluster.tsv", sep="\t", names=["representative", "member"])
+    train_clustered = pd.read_csv(
+        Path(params["out"]) / "train_cluster.tsv", sep="\t", names=["representative", "member"]
+    )
     test_clustered = pd.read_csv(Path(params["out"]) / "test_cluster.tsv", sep="\t", names=["representative", "member"])
 
     num_train = train_clustered["member"].nunique()
@@ -65,7 +82,10 @@ def plot(params: dict):
 
     sequence_count = pd.DataFrame(
         {
-            "Dataset": ["Train(min-seq-id=0.3 , cov=0.8)", "Test(min-seq-id=0.5, cov=0.9)"],
+            "Dataset": [
+                f"Train(min-seq-id=0.3 , cov=0.8,\nmax-seq-len={params['train']['max_seq_len']})",
+                f"Test(min-seq-id=0.5, cov=0.9,\nmax-seq-len={params['test']['max_seq_len']})",
+            ],
             "Original": [num_train, num_test],
             "Clustered": [num_train_clu, num_test_clu],
         }

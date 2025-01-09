@@ -39,21 +39,6 @@ def setup_model(checkpoint, device: torch.device = "mps") -> Tuple:
         raise
 
 
-def process_fasta(fasta_path: Path, max_len=1022) -> Path:
-    """Remove sequences longer than max_len and save their identifiers to a file."""
-    filtered_fasta_path = fasta_path.with_suffix(".filtered.fasta")
-    long_sequences_path = fasta_path.with_suffix(".long_sequences.txt")
-
-    with filtered_fasta_path.open("w") as filtered_fasta, long_sequences_path.open("w") as long_sequences:
-        for header, seq in Fasta(str(fasta_path)).items():
-            if len(seq) > max_len:
-                long_sequences.write(f"{header.split()[0]}\n")
-            else:
-                filtered_fasta.write(f">{header}\n{seq}\n")
-
-    return filtered_fasta_path
-
-
 def seq_preprocess(df, model_type="esm") -> Union[pd.DataFrame, None]:
     df["sequence"] = df["sequence"].str.replace("[UZO]", "X", regex=True)
 
@@ -96,12 +81,21 @@ def create_embedding(
             sequence,
             return_tensors="pt",
             max_length=max_seq_len,
-            truncation=False,
+            truncation=True,
             padding=True,
             add_special_tokens=True,
         ).to(device)
         with torch.no_grad():
-            outputs = model(**inputs).last_hidden_state.cpu().numpy()
+            outputs = model(**inputs).last_hidden_state.cpu()
+
+            # Add validation
+            if not torch.isfinite(outputs).all():
+                non_finite = (~torch.isfinite(outputs)).sum().item()
+                logging.warning(f"Found {non_finite} non-finite values in sequence embedding")
+                outputs = torch.nan_to_num(outputs, nan=0.0, posinf=0.0, neginf=0.0)
+
+            outputs = outputs.numpy()
+
         if emb_type == "per_res":
             # remove special tokens
             if mod_type in ["pt", "ankh"]:
@@ -183,7 +177,6 @@ def split_embeddings(fasta, embs, dataset: Path, split: str) -> dict:
                 continue
 
             if header not in embs:
-                tqdm.write(f"Embedding not found for {header}")
                 seqs_to_embed["header"].append(header)
                 seqs_to_embed["sequence"].append(sequence)
                 continue
