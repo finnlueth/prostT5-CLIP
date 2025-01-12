@@ -10,7 +10,7 @@ dependencies:
   - pip:
     - torch==2.4.0
     - lightning
-    - transformers==4.43.3
+    - transformers
     - peft
     - datasets
     - pandas
@@ -34,8 +34,7 @@ dependencies:
     - sentencepiece
     - protobuf
     - h5py
-    - protobuf
-    - wandbs
+    - wandb
     - accelerate
     - rust
     # - flash_attn # only CUDA capable machines
