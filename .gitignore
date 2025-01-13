@@ -180,3 +180,6 @@ doc.md
 /protein-clip
 output/best-checkpoint.ckpt
 src/models/model.py
+
+# huggingface
+datasets/
