@@ -1,6 +1,6 @@
 stages:
   cluster:
-    cmd: python -m src.data.cluster
+    cmd: python -m src.utils.cluster
     deps:
       - cafa5/test/testsuperset.fasta
       - cafa5/train/train_sequences.fasta
@@ -11,8 +11,9 @@ stages:
     outs:
       - clusters
   metadata:
-    cmd: python src/utils/metadata.py
+    cmd: python -m src.utils.metadata
     deps:
+      - src/utils/metadata.py
       - cafa5/train/go-basic.obo
       - cafa5/train/train_sequences.fasta
       - cafa5/train/train_taxonomy.tsv
@@ -20,9 +21,10 @@ stages:
     params:
       - metadata.data_folder
       - metadata.cluster_folder
+      - metadata.translated_with_aspect
       - metadata.out
     outs:
-      - output/train_metadata.tsv
+      - output/metadata.tsv
       - output/go_sentences.tsv
   embed_seq:
     cmd: python -m src.data.embed_seq

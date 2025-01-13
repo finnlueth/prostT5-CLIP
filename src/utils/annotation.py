@@ -35,7 +35,7 @@ class AnnotationParser(ABC):
 
 
 class GOParser(AnnotationParser):
-    def __init__(self, go_file: Path, seed: int = 42):
+    def __init__(self, go_file: Path, with_aspect: True, seed: int = 42):
         """
         Initialize GO annotation Parser.
 
@@ -44,6 +44,7 @@ class GOParser(AnnotationParser):
         """
         random.seed(seed)
         self.go_file = go_file
+        self.with_aspect = with_aspect
         self.excludes = set()
         self.go_hierarchy, self.go_names, self.go_sentences = self._parse()
         self.go_reversed_hierarchy = self._reverse_hierarchy()
@@ -84,7 +85,7 @@ class GOParser(AnnotationParser):
                         break
                     sentences[current_id] = {
                         "namespace": namespace,
-                        "sentence": f"The {namespace} is {current_name}",
+                        "sentence": f"The {namespace} is {current_name}." if self.with_aspect else current_name,
                     }
                 elif not is_obsolete and line.startswith("is_a: "):
                     parent = line.split()[1]

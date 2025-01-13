@@ -19,20 +19,25 @@ stages:
       hash: md5
       md5: cb6b8fed714290bae3d661b018ce3a58
       size: 119091574
+    - path: src/utils/metadata.py
+      hash: md5
+      md5: 5332810e4608ece1bcdf5548194e8907
+      size: 7751
     params:
       params.yaml:
         metadata.cluster_folder: clusters
         metadata.data_folder: cafa5/train
         metadata.out: output
+        metadata.translated_with_aspect: false
     outs:
     - path: output/go_sentences.tsv
       hash: md5
-      md5: 3961a1c6838ea630bc7c4c7a9f095f9e
-      size: 4249705
-    - path: output/train_metadata.tsv
+      md5: 7e7a550df852c9f6bfc98d75d1dbb0b2
+      size: 3125257
+    - path: output/metadata.tsv
       hash: md5
-      md5: 2668e071a0f5e6a23b06462fc68c787b
-      size: 5586516
+      md5: 68e0ded96d64ce3b326ee8931fc7e833
+      size: 29206004
   embed_seq:
     cmd: python -m src.data.embed_seq
     deps:
@@ -104,7 +109,7 @@ stages:
         embed_vis.subsample: 1000
         embed_vis.text_embeddings: embeddings/text_embeddings.h5
   cluster:
-    cmd: python -m src.data.cluster
+    cmd: python -m src.utils.cluster
     deps:
     - path: cafa5/test/testsuperset.fasta
       hash: md5
@@ -138,6 +143,6 @@ stages:
     outs:
     - path: clusters
       hash: md5
-      md5: ab4ac78d495745b1d7f2490ad947ecf2.dir
-      size: 234932139
+      md5: e6a5bf137d834bcd41819ca9479b6232.dir
+      size: 189450718
       nfiles: 6

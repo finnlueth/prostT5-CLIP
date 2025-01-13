@@ -19,7 +19,11 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def gather_protein_annotations(
-    train_folder: Path, cluster_folder: Path, seed: int, rep_only: bool = True
+    train_folder: Path,
+    cluster_folder: Path,
+    seed: int,
+    rep_only: bool = True,
+    with_aspect: bool = True,
 ) -> pd.DataFrame:
     """
     Gather all GO terms and aspects for each protein entry.
@@ -29,6 +33,7 @@ def gather_protein_annotations(
         cluster_folder: Path to the folder with MMseqs cluster results
         seed: Seed for reproducibility in sampling hard negative labels
         rep_only: only representive sequences of MMseqs
+        with_aspect: Include GO aspects in the output
 
     Returns:
         pd.Dataframe: DataFrame with proteins and their grouped annotations
@@ -47,6 +52,8 @@ def gather_protein_annotations(
     if rep_only:
         seq_rep = pd.read_csv(cluster_folder / "train_cluster.tsv", sep="\t", header=None)[0]
         cafa = cafa[cafa.index.isin(seq_rep)]
+    else:
+        raise NotImplementedError("Only representative sequences are supported at the moment.")
 
     grouped = defaultdict(lambda: {"terms": set(), "aspects": set()})
     for protein, row in tqdm(cafa.iterrows(), total=len(cafa), desc="Grouping GO terms"):
@@ -75,7 +82,7 @@ def gather_protein_annotations(
     )
 
     mapper = TaxonomyMapper()
-    go_parser = GOParser(train_folder / "go-basic.obo", seed=seed)
+    go_parser = GOParser(train_folder / "go-basic.obo", with_aspect=with_aspect, seed=seed)
     sentences = pd.DataFrame.from_dict(go_parser.go_sentences, orient="index").reset_index(names=["term"])
 
     tqdm.pandas(desc="processing taxonomy")
@@ -89,6 +96,7 @@ def gather_protein_annotations(
 
     result["positive_GO"] = positives
     result["negative_GO"] = negatives
+    result["GO_terms"] = result["GO_terms"].apply(lambda x: ",".join(x))
 
     return (
         result[
@@ -102,6 +110,7 @@ def gather_protein_annotations(
                 "aspects",
                 "positive_GO",
                 "negative_GO",
+                "GO_terms",
             ]
         ],
         sentences,
@@ -201,9 +210,13 @@ def main():
     params = get_params("metadata")
 
     metadata, sentences = gather_protein_annotations(
-        Path(params["data_folder"]), Path(params["cluster_folder"]), seed=params.get("seed", 42)
+        Path(params["data_folder"]),
+        Path(params["cluster_folder"]),
+        seed=params.get("seed", 42),
+        with_aspect=params.get("translated_with_aspect", True),
+        rep_only=True,
     )
-    metadata.to_csv(Path(params["out"]) / "train_metadata.tsv", sep="\t", index=False)
+    metadata.to_csv(Path(params["out"]) / "metadata.tsv", sep="\t", index=False)
 
     sentences.to_csv(Path(params["out"]) / "go_sentences.tsv", sep="\t", index=False)
 

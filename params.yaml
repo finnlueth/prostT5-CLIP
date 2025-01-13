@@ -30,7 +30,16 @@ cluster:
 metadata:
   data_folder: "cafa5/train"
   cluster_folder: "clusters"
+  translated_with_aspect: False
   out: "output"
+
+dataset:
+  protein: "cafa5/train/train_sequences.fasta"
+  metadata: "output/metadata.tsv"
+  go_sentence: "output/go_sentences.tsv"
+  seed: 42
+  test_size: 0.1
+  output: "datasets/protein_go_concatenated"
 
 embed_seq:
   device: "cuda"
@@ -46,7 +55,7 @@ embed_seq:
     sequence: "cafa5/test/testsuperset.fasta"
 
 embed_text:
-  metadata: "output/train_metadata.tsv"
+  metadata: "output/metadata.tsv"
   sentence: "output/go_sentences.tsv"
   model: "microsoft/Phi-3.5-mini-instruct"
   tokenizer: "microsoft/Phi-3.5-mini-instruct"
@@ -62,7 +71,7 @@ embed_vis:
   min_dist: 0.1
   n_components: 2
   metric: "cosine"
-  metadata: "output/train_metadata.tsv"
+  metadata: "output/metadata.tsv"
   GO: "output/go_sentences.tsv"
   text_embeddings: "embeddings/text_embeddings.h5"
   sequence_embeddings: "embeddings/sequence_embeddings.h5"

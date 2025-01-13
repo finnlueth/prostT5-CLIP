@@ -1,98 +1,10 @@
-import logging
-from pathlib import Path
 from typing import Any, Dict, Optional
 
-import h5py
-import numpy as np
-import pandas as pd
 import pytorch_lightning as pl
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
-
-class H5Reader:
-    """Wrapper for h5py to provide dict-like access without loading all data to memory"""
-
-    def __init__(self, file_path: str, group: Optional[str] = None):
-        self.file = h5py.File(file_path, "r")
-        self.dataset = self.file[group] if group else self.file
-
-    def __getitem__(self, key):
-        return torch.from_numpy(self.dataset[key][()].astype(np.float32))
-
-    def __del__(self):
-        self.file.close()
-
-
-class ProteinGODataset(Dataset):
-    def __init__(
-        self,
-        prot_emb_file: str,
-        text_emb_file: str,
-        group: str = "train_set",
-        table: str = None,
-    ):
-        """
-        Custom Dataset for Protein-GO term pairs with pre-computed embeddings.
-
-        Args:
-            prot_emb_file (str): Path to the protein embeddings H5 file.
-            text_emb_file (str): Path to the GO term embeddings H5 file.
-            group (str, optional): Group key in the H5 protein embeddings file. Defaults to "train_set".
-            table (str, optional): Path to the TSV file containing protein-GO term pairs. Defaults to None.
-        """
-        super().__init__()
-        self.table = table
-        self.data = self._load_data()
-        self.prot_emb = H5Reader(prot_emb_file, group)
-        self.text_emb = H5Reader(text_emb_file)
-
-    def _load_data(self) -> pd.DataFrame:
-        logging.info("Exploding aggregated GO terms...")
-
-        metadata = pd.read_csv(Path(self.table), sep="\t", usecols=["EntryID", "positive_GO", "negative_GO"])
-
-        for col in ["positive_GO", "negative_GO"]:
-            metadata[col] = metadata[col].str.split(",")
-
-        exploded = pd.melt(
-            metadata,
-            id_vars=["EntryID"],
-            value_vars=["positive_GO", "negative_GO"],
-            var_name="go_source",
-            value_name="go_term",
-        ).explode("go_term")
-
-        exploded["label"] = (exploded["go_source"] == "positive_GO").astype(int)
-
-        exploded = (
-            exploded.drop("go_source", axis=1)
-            .reset_index(drop=True)
-            .rename(columns={"EntryID": "prot", "go_term": "text"})
-        )
-
-        logging.info(f"Total datapoints after explosion: {len(exploded)}")
-
-        return exploded
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        row = self.data.iloc[idx]
-        prot_emb = self.prot_emb[row["prot"]]
-        text_emb = self.text_emb[row["text"]]
-        label = torch.tensor(row["label"], dtype=torch.long)
-
-        if not torch.isfinite(prot_emb).all() or not torch.isfinite(text_emb).all():
-            logging.warning(f"NaN or Inf detected in datapoint index {idx}. Skipping this datapoint.")
-            return None
-
-        return {
-            "prot_emb": prot_emb,
-            "text_emb": text_emb,
-            "label": label,
-        }
+from datasets import ProteinGODataset
 
 
 class ProteinGODataModule(pl.LightningDataModule):
