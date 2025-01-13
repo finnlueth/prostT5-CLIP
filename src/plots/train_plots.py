@@ -20,7 +20,7 @@ def plot_training_history(log_history, train_config):
     
     mean_sim = eval_logs['eval_mean_cosine_similarity']
     std_sim = eval_logs['eval_std_cosine_similarity']
-    n_samples = train_config["trainer"]["eval_sample_size"]  # Using eval sample size from config
+    n_samples = len(eval_logs['eval_all_similarities'][0])
     std_error = std_sim / np.sqrt(n_samples)
     epochs = eval_logs['epoch']
     
@@ -31,12 +31,20 @@ def plot_training_history(log_history, train_config):
                      alpha=0.3,
                      color='green',
                      label='±1 SE')
+    
+    # Add min and max cosine similarity
+    all_sims = eval_logs['eval_all_similarities']
+    min_sims = [min(sims) for sims in all_sims]
+    max_sims = [max(sims) for sims in all_sims]
+    ax2.plot(epochs, min_sims, '--', color='red', alpha=0.5, label='Min Cosine Similarity')
+    ax2.plot(epochs, max_sims, '--', color='purple', alpha=0.5, label='Max Cosine Similarity')
+    
     ax2.set_ylabel('Cosine Similarity', color='green')
     ax2.tick_params(axis='y', labelcolor='green')
     
     lines1, labels1 = ax1.get_legend_handles_labels()
     lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc='center', bbox_to_anchor=(0.5, -0.2), ncol=3)
     
     ax1.grid(True)
     plt.tight_layout()

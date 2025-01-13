@@ -25,8 +25,6 @@ def main():
 
     train_config = load_config()
 
-    # todo: add continue training from checkpoint
-
     model_name_identifier, device, report_to, run, USE_WANDB, SEED = setup_environment(train_config)
 
     accelerate.utils.set_seed(SEED + 1)
@@ -34,8 +32,13 @@ def main():
     torch.manual_seed(SEED + 3)
     random.seed(SEED + 4)
 
+    # todo: add continue training from checkpoint
+
     tokenizer_plm, tokenizer_llm = load_tokenizers(train_config)
     dataset = prepare_dataset(train_config, tokenizer_plm, tokenizer_llm)
+
+    print(dataset)
+    print(dataset["train"][0])
 
     model = load_clip_model(train_config, device)
 
@@ -43,9 +46,6 @@ def main():
         model = apply_lora_to_model(model, train_config)
     else:
         freeze_base_models(model)
-
-    print(dataset)
-    print(dataset["train"][0])
 
     trainer = setup_trainer(model, dataset, train_config, model_name_identifier, USE_WANDB, tokenizer_plm, tokenizer_llm)
 
