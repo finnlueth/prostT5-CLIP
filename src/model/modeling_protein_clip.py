@@ -61,8 +61,11 @@ def _switch_phi_padding_side(hidden_states, attention_mask):
     indices = torch.arange(seq_length, device=hidden_states.device)
     indices = indices.expand(hidden_states.size(0), -1)
     rolled_indices = (indices + pad_lengths.unsqueeze(1)) % seq_length
+    
+    adjusted_hidden_states = torch.gather(hidden_states, 1, rolled_indices.unsqueeze(-1).expand(-1, -1, hidden_states.size(-1)))
+    adjusted_attention_mask = torch.gather(attention_mask, 1, rolled_indices)
 
-    return torch.gather(hidden_states, 1, rolled_indices.unsqueeze(-1).expand(-1, -1, hidden_states.size(-1)))
+    return adjusted_hidden_states, adjusted_attention_mask
 
 
 class LogitScale(nn.Module):
@@ -107,6 +110,7 @@ class ProtT5CLIP(PreTrainedModel):
         self.text_projection = nn.Linear(self.text_embed_dim, self.projection_dim, bias=False, dtype=self._dtype)
         # self.logit_scale = nn.Parameter(torch.tensor(config.logit_scale_init_value, dtype=self._dtype))
         self.logit_scale = LogitScale(config.logit_scale_init_value, self._dtype)
+        self.drophout = nn.Dropout(p=0.2)
 
         for name, init_func in modeling_utils.TORCH_INIT_FUNCTIONS.items():
             setattr(torch.nn.init, name, init_func)
@@ -134,8 +138,9 @@ class ProtT5CLIP(PreTrainedModel):
         is_phi_model = any("phi" in name.lower() for name in self.model_llm.config.architectures)
         if is_phi_model:
             last_hidden = outputs.hidden_states[-1]
-            adjusted_last_hidden = _switch_phi_padding_side(hidden_states=last_hidden, attention_mask=text_attention_mask)
+            adjusted_last_hidden, adjusted_attention_mask = _switch_phi_padding_side(hidden_states=last_hidden, attention_mask=text_attention_mask)
             outputs.hidden_states = tuple(list(outputs.hidden_states[:-1]) + [adjusted_last_hidden])
+            outputs.attention_mask = adjusted_attention_mask
         return outputs
 
     def forward(
@@ -174,6 +179,7 @@ class ProtT5CLIP(PreTrainedModel):
                 protein_attention_mask=attention_mask_sequence,
             )
             protein_embeds = protein_outputs["last_hidden_state"].to(self._dtype)
+            protein_embeds = self.drophout(protein_embeds)
             proj_protein_embeds = self.protein_projection(protein_embeds)
 
         if input_ids_text is not None:
@@ -182,6 +188,7 @@ class ProtT5CLIP(PreTrainedModel):
                 text_attention_mask=attention_mask_text,
             )
             text_embeds = text_outputs["hidden_states"][-1].to(self._dtype)
+            text_embeds = self.drophout(text_embeds)
             proj_text_embeds = self.text_projection(text_embeds)
 
         # TODO: check if this is needed or ask somebody about it
