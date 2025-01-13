@@ -35,13 +35,17 @@ def main():
 
     accelerator.wait_for_everyone()
 
-    # accelerate.utils.set_seed(SEED + 1)
-    # transformers.set_seed(SEED + 2)
-    # torch.manual_seed(SEED + 3)
-    # random.seed(SEED + 4)
+    accelerate.utils.set_seed(SEED + 1)
+    transformers.set_seed(SEED + 2)
+    torch.manual_seed(SEED + 3)
+    random.seed(SEED + 4)
 
     tokenizer_plm, tokenizer_llm = load_tokenizers(train_config)
     dataset = prepare_dataset(train_config, tokenizer_plm, tokenizer_llm)
+
+    if accelerator.is_main_process:
+        print(dataset)
+        print(dataset["train"][0])
 
     model = load_clip_model(train_config, accelerator.device)
 
@@ -49,10 +53,6 @@ def main():
         model = apply_lora_to_model(model, train_config)
     else:
         freeze_base_models(model)
-
-    if accelerator.is_main_process:
-        print(dataset)
-        print(dataset["train"][0])
 
     trainer = setup_trainer(model, dataset, train_config, model_name_identifier, USE_WANDB, tokenizer_plm, tokenizer_llm)
 

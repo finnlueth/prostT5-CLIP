@@ -42,6 +42,12 @@ def load_config():
     return train_config
 
 
+def clean_cach_garbage():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+
+
 def setup_environment(train_config):
     """Setup training environment and configs"""
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -101,11 +107,13 @@ def load_clip_model(train_config, device):
     )
 
     model = ProtT5CLIP(model_config)
+
+    if train_config["model"]["reload_from_checkpoint_path"]:
+        model.load_adapter("../" + train_config["model"]["reload_from_checkpoint_path"])
+
     model.to(device)
 
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    gc.collect()
+    clean_cach_garbage()
 
     print("Loaded model...")
     utils.check_model_on_cuda(model)
@@ -145,12 +153,12 @@ def apply_lora_to_model(model, train_config):
 
 def apply_peft_to_model(model, train_config):
     modules_to_save = ["protein_projection", "text_projection", "logit_scale"]
-    
+
     peft_config = PeftConfig(
         inference_mode=False,
         modules_to_save=modules_to_save,
     )
-    
+
     model = get_peft_model(model, peft_config)
     return model
 
@@ -239,7 +247,7 @@ def setup_trainer(model, dataset, train_config, model_name_identifier, USE_WANDB
     trainer = ProteinSampleSubsetTrainer(
         model=model,
         args=training_args,
-        train_dataset=dataset["train"],  # .select(range(512)), #!!!
+        train_dataset=dataset["train"].select(range(512)), #!!!
         eval_dataset=dataset["test"],
         data_collator=data_collator,
         compute_metrics=metrics_factory(),
@@ -274,6 +282,7 @@ def save_model_and_logs(model, trainer, model_name_identifier, train_config):
     pd.DataFrame(trainer.state.log_history).to_csv(f"{model_save_path}/training_log.csv", index=False)
 
     with open(f"{model_save_path}/train_config.yaml", "w") as f:
+        train_config['model']['reload_from_checkpoint_path'] = model_save_path
         yaml.dump(train_config, f, sort_keys=False)
 
     fig = plot_training_history(log_history=pd.DataFrame(trainer.state.log_history), train_config=train_config)
@@ -281,3 +290,7 @@ def save_model_and_logs(model, trainer, model_name_identifier, train_config):
     plt.close(fig)
 
     print("Model, config, and log saved to:", model_save_path)
+
+
+def sanity_check(model, dataset, train_config):
+    pass

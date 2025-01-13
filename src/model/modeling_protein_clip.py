@@ -19,7 +19,7 @@ from .configuration_protein_clip import ProtT5CLIPConfig
 from .output_protein_clip import ProteinTextOutput
 
 
-def _switch_phi_padding_side_old(hidden_states, attention_mask):
+def _switch_phi_padding_side_deprecated(hidden_states, attention_mask):
     """
     Adjusts embeddings from Phi models to move meaningful tokens to the start.
     Args:
@@ -68,6 +68,7 @@ def _switch_phi_padding_side(hidden_states, attention_mask):
     return adjusted_hidden_states, adjusted_attention_mask
 
 
+# Defined as Module to be able to save it with peft
 class LogitScale(nn.Module):
     def __init__(self, init_value, dtype=torch.float32):
         super().__init__()
