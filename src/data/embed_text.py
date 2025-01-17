@@ -69,7 +69,7 @@ def create_embedding(
                 tqdm.write(f"GO term {go} already in text embedding, skipping")
                 continue
 
-            text = row["text"]
+            text = f"{row["sentence"]}."
             embedding = compute_embedding(text, sentence_level, max_length)
             hdf.create_dataset(name=go, data=embedding)
 

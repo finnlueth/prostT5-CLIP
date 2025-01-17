@@ -1,7 +1,7 @@
 schema: '2.0'
 stages:
   metadata:
-    cmd: python src/utils/metadata.py
+    cmd: python -m src.utils.metadata
     deps:
     - path: cafa5/train/go-basic.obo
       hash: md5
@@ -19,6 +19,10 @@ stages:
       hash: md5
       md5: cb6b8fed714290bae3d661b018ce3a58
       size: 119091574
+    - path: src/utils/annotation.py
+      hash: md5
+      md5: 761014dfb32fb459a9e4aef1f1c60d39
+      size: 10513
     - path: src/utils/metadata.py
       hash: md5
       md5: 5332810e4608ece1bcdf5548194e8907
@@ -28,16 +32,16 @@ stages:
         metadata.cluster_folder: clusters
         metadata.data_folder: cafa5/train
         metadata.out: output
-        metadata.translated_with_aspect: false
+        metadata.translated_with_aspect: true
     outs:
     - path: output/go_sentences.tsv
       hash: md5
-      md5: 7e7a550df852c9f6bfc98d75d1dbb0b2
-      size: 3125257
+      md5: 3961a1c6838ea630bc7c4c7a9f095f9e
+      size: 4249705
     - path: output/metadata.tsv
       hash: md5
-      md5: 68e0ded96d64ce3b326ee8931fc7e833
-      size: 29206004
+      md5: b2002dc87b050dc6b1853e8a2718735a
+      size: 28516114
   embed_seq:
     cmd: python -m src.data.embed_seq
     deps:
@@ -59,8 +63,8 @@ stages:
     outs:
     - path: embeddings/sequence_embeddings.h5
       hash: md5
-      md5: 6c05f04873512d4014bf601927d8ba70
-      size: 684127424
+      md5: ef6752745faabed7abfcf7b1cd782741
+      size: 507485840
   embed_text:
     cmd: python -m src.data.embed_text
     deps:
@@ -68,26 +72,21 @@ stages:
       hash: md5
       md5: 3961a1c6838ea630bc7c4c7a9f095f9e
       size: 4249705
-    - path: output/train_metadata.tsv
-      hash: md5
-      md5: da0f9b9ee2dfae64dcc0d0813df8572b
-      size: 23787977
     - path: src/data/embed_text.py
       hash: md5
-      md5: 998fe7781b8fa6bd44ecdba06bf7467e
-      size: 3001
+      md5: 7856b2056b2b81c8fa2f0afe76afad54
+      size: 2914
     params:
       params.yaml:
         embed_text.device: cuda
-        embed_text.max_len: 512
-        embed_text.metadata: output/train_metadata.tsv
+        embed_text.max_len: 1024
         embed_text.model: microsoft/Phi-3.5-mini-instruct
         embed_text.sentence_level: sentence_embeddings
         embed_text.tokenizer: microsoft/Phi-3.5-mini-instruct
     outs:
     - path: embeddings/text_embeddings.h5
       hash: md5
-      md5: c9aa6338b443bfa675ae2536016f0bad
+      md5: 5bd78b218a58007328d4c314bc94ed3f
       size: 548181520
   embed_vis:
     cmd: python -m src.eval.embed_vis

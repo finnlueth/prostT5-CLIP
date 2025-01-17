@@ -14,6 +14,7 @@ stages:
     cmd: python -m src.utils.metadata
     deps:
       - src/utils/metadata.py
+      - src/utils/annotation.py
       - cafa5/train/go-basic.obo
       - cafa5/train/train_sequences.fasta
       - cafa5/train/train_taxonomy.tsv
@@ -43,13 +44,11 @@ stages:
   embed_text:
     cmd: python -m src.data.embed_text
     deps:
-      - output/train_metadata.tsv
       - output/go_sentences.tsv
       - src/data/embed_text.py
     params:
       - embed_text.device
       - embed_text.max_len
-      - embed_text.metadata
       - embed_text.model
       - embed_text.sentence_level
       - embed_text.tokenizer

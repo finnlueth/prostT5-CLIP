@@ -64,7 +64,6 @@ def read_fasta(file_path: Path) -> Tuple[list, list]:
 def create_embedding(
     checkpoint: str,
     df: pd.DataFrame,
-    split: str,
     emb_type="per_prot",
     max_seq_len=1024,
     device: torch.device = "mps",
@@ -111,9 +110,6 @@ def create_embedding(
     steps = 1000
 
     with h5py.File(outputs, "a") as hdf:
-        if split not in hdf:
-            hdf.create_group(split)
-
         embs, headers = [], []
 
         for i, (_, row) in enumerate(
@@ -122,7 +118,7 @@ def create_embedding(
             sequence = row["sequence"]
             header = row["header"]
 
-            if header in hdf[split]:
+            if header in hdf:
                 tqdm.write(f"Protein {header} already in sequence embeddings, skipping")
                 continue
 
@@ -133,8 +129,8 @@ def create_embedding(
             # Save every 1000 sequences
             if (i + 1) % steps == 0 or i == len(preprocessed) - 1:
                 for h, emb in zip(headers, embs):
-                    if h not in hdf[split]:
-                        hdf[split].create_dataset(name=h, data=emb)
+                    if h not in hdf:
+                        hdf.create_dataset(name=h, data=emb)
                 tqdm.write(f"Saved {len(headers)} embeddings to {outputs}")
                 embs, headers = [], []
                 hdf.flush()  # Force write to disk
@@ -162,17 +158,15 @@ def split_embeddings(fasta, embs, dataset: Path, split: str) -> dict:
     """
     headers, sequences = read_fasta(fasta)
     seqs_to_embed = {"header": [], "sequence": []}
-    with h5py.File(dataset, "a") as hdf:
-        if split not in hdf:
-            hdf.create_group(name=split)
 
+    with h5py.File(dataset, "a") as hdf:
         for header, sequence in tqdm(
             zip(headers, sequences),
             total=len(headers),
             desc=f"splitting embeddings for {split}",
             leave=False,
         ):
-            if header in hdf[split]:
+            if header in hdf:
                 tqdm.write(f"Protein {header} already in {split}, skipping.")
                 continue
 
@@ -182,7 +176,7 @@ def split_embeddings(fasta, embs, dataset: Path, split: str) -> dict:
                 continue
 
             else:
-                hdf[split].create_dataset(name=header, data=embs[header][()])
+                hdf.create_dataset(name=header, data=embs[header][()])
 
     tqdm.write(f"Found {len(headers) - len(seqs_to_embed['header'])} embeddings for {split} in uniprot")
 
@@ -211,7 +205,6 @@ def main():
             create_embedding(
                 checkpoint=params["model"],
                 df=pd.DataFrame(split_embeddings(inputs, emb, Path(params["output"]), split)),
-                split=split,
                 emb_type=params["emb_type"],
                 max_seq_len=params["max_seq_len"],
                 device=torch.device(params["device"]),
