@@ -1,101 +1,14 @@
 import logging
+from abc import abstractmethod
 from pathlib import Path
-from typing import Optional
 
-import h5py
 import numpy as np
 import pandas as pd
-import torch
 from pyfaidx import Fasta
 from tqdm import tqdm
 
-from datasets import Dataset, Features, Value
+from datasets import ClassLabel, Dataset, Features, Value
 from src.utils.config import get_params
-
-
-class H5Reader:
-    """Wrapper for h5py to provide dict-like access without loading all data to memory"""
-
-    def __init__(self, file_path: str, group: Optional[str] = None):
-        self.file = h5py.File(file_path, "r")
-        self.dataset = self.file[group] if group else self.file
-
-    def __getitem__(self, key):
-        return torch.from_numpy(self.dataset[key][()].astype(np.float32))
-
-    def __del__(self):
-        self.file.close()
-
-
-class ProteinGODataset(Dataset):
-    def __init__(
-        self,
-        prot_emb_file: str,
-        text_emb_file: str,
-        group: str = "train_set",
-        table: str = None,
-    ):
-        """
-        Custom Dataset for Protein-GO term pairs with pre-computed embeddings.
-
-        Args:
-            prot_emb_file (str): Path to the protein embeddings H5 file.
-            text_emb_file (str): Path to the GO term embeddings H5 file.
-            group (str, optional): Group key in the H5 protein embeddings file. Defaults to "train_set".
-            table (str, optional): Path to the TSV file containing protein-GO term pairs. Defaults to None.
-        """
-        super().__init__()
-        self.table = table
-        self.data = self._load_data()
-        self.prot_emb = H5Reader(prot_emb_file, group)
-        self.text_emb = H5Reader(text_emb_file)
-
-    def _load_data(self) -> pd.DataFrame:
-        logging.info("Exploding aggregated GO terms...")
-
-        metadata = pd.read_csv(Path(self.table), sep="\t", usecols=["EntryID", "positive_GO", "negative_GO"])
-
-        for col in ["positive_GO", "negative_GO"]:
-            metadata[col] = metadata[col].str.split(",")
-
-        exploded = pd.melt(
-            metadata,
-            id_vars=["EntryID"],
-            value_vars=["positive_GO", "negative_GO"],
-            var_name="go_source",
-            value_name="go_term",
-        ).explode("go_term")
-
-        exploded["label"] = (exploded["go_source"] == "positive_GO").astype(int)
-
-        exploded = (
-            exploded.drop("go_source", axis=1)
-            .reset_index(drop=True)
-            .rename(columns={"EntryID": "prot", "go_term": "text"})
-        )
-
-        logging.info(f"Total datapoints after explosion: {len(exploded)}")
-
-        return exploded
-
-    def __len__(self):
-        return len(self.data)
-
-    def __getitem__(self, idx):
-        row = self.data.iloc[idx]
-        prot_emb = self.prot_emb[row["prot"]]
-        text_emb = self.text_emb[row["text"]]
-        label = torch.tensor(row["label"], dtype=torch.long)
-
-        if not torch.isfinite(prot_emb).all() or not torch.isfinite(text_emb).all():
-            logging.warning(f"NaN or Inf detected in datapoint index {idx}. Skipping this datapoint.")
-            return None
-
-        return {
-            "prot_emb": prot_emb,
-            "text_emb": text_emb,
-            "label": label,
-        }
 
 
 class HuggingFaceDatasetCreator:
@@ -133,6 +46,7 @@ class HuggingFaceDatasetCreator:
         sentences = [s for s in sentences if s]
         return start + delimiter.join(sentences) + end
 
+    @abstractmethod
     def create_dataset(self) -> Dataset:
         """
         Create HuggingFace dataset using Dataset.from_dict().
@@ -141,6 +55,63 @@ class HuggingFaceDatasetCreator:
             Dataset: HuggingFace Dataset object.
         """
         raise NotImplementedError
+
+
+class ProteinGOContrastiveDataset(HuggingFaceDatasetCreator):
+    def __init__(self, sequence: Path, metadata: Path, go_sentence: Path, seed: int = 42, test_size: float = 0.1):
+        """
+        Custom Dataset for Protein-GO term pairs with protein ID and GO term ID for contrastive learning.
+
+        Args:
+            sequence (Path): Path to the protein sequences FASTA file.
+            metadata (Path): Path to the metadata.tsv file.
+            go_sentence (Path): Path to the go_sentences.tsv file.
+            seed (int, optional): Random seed for shuffling the dataset. Defaults to 42.
+            test_size (float, optional): Test set size. Defaults to 0.1.
+        """
+
+        super().__init__(sequence, metadata, go_sentence, seed, test_size)
+
+    def _load_data(self) -> pd.DataFrame:
+        logging.info("Exploding aggregated GO terms...")
+
+        for col in ["positive_GO", "negative_GO"]:
+            self.metadata[col] = self.metadata[col].str.split(",")
+
+        exploded = pd.melt(
+            self.metadata,
+            id_vars=["EntryID"],
+            value_vars=["positive_GO", "negative_GO"],
+            var_name="go_source",
+            value_name="go_term",
+        ).explode("go_term")
+
+        exploded["label"] = (exploded["go_source"] == "positive_GO").astype(str)
+
+        exploded = (
+            exploded.drop("go_source", axis=1)
+            .reset_index(drop=True)
+            .rename(columns={"EntryID": "protein", "go_term": "term"})
+        )
+
+        logging.info(f"Total datapoints after explosion: {len(exploded)}")
+
+        return exploded
+
+    def create_dataset(self):
+        features = Features(
+            {
+                "protein": Value("string"),
+                "term": Value("string"),
+                "label": ClassLabel(num_classes=2, names=["False", "True"]),
+            }
+        )
+
+        return (
+            Dataset.from_pandas(self._load_data(), features=features)
+            .shuffle(seed=self.seed)
+            .train_test_split(test_size=self.test_size)
+        )
 
 
 class ProteinGOConcatenatedDataset(HuggingFaceDatasetCreator):
