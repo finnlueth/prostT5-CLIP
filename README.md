@@ -19,6 +19,7 @@ for singe gpu training
 ```sh
 cd scripts
 python train_clip.py
+nohup python train_clip.py &
 ```
 
 or for distributed (multi gpu) training

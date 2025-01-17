@@ -180,7 +180,7 @@ class ProtT5CLIP(PreTrainedModel):
                 protein_attention_mask=attention_mask_sequence,
             )
             protein_embeds = protein_outputs["last_hidden_state"].to(self._dtype)
-            protein_embeds = self.drophout(protein_embeds)
+            # protein_embeds = self.drophout(protein_embeds)
             proj_protein_embeds = self.protein_projection(protein_embeds)
 
         if input_ids_text is not None:
@@ -189,7 +189,7 @@ class ProtT5CLIP(PreTrainedModel):
                 text_attention_mask=attention_mask_text,
             )
             text_embeds = text_outputs["hidden_states"][-1].to(self._dtype)
-            text_embeds = self.drophout(text_embeds)
+            # text_embeds = self.drophout(text_embeds)
             proj_text_embeds = self.text_projection(text_embeds)
 
         # TODO: check if this is needed or ask somebody about it
@@ -234,4 +234,19 @@ class ProtT5CLIP(PreTrainedModel):
             text_outputs=text_outputs if self.config.output_text_outputs else None,
             proj_protein_embeds=proj_protein_embeds if self.config.output_proj_protein_embeds else None,
             proj_text_embeds=proj_text_embeds if self.config.output_proj_text_embeds else None,
+        )
+        
+    def print_trainable_parameters(self):
+        """
+        Prints the number of trainable parameters in the model.
+        """
+        trainable_params = 0
+        all_param = 0
+        for _, param in self.named_parameters():
+            all_param += param.numel()
+            if param.requires_grad:
+                trainable_params += param.numel()
+        print(
+            f"trainable params: {trainable_params:,d} || all params: {all_param:,d} "
+            f"|| trainable%: {100 * trainable_params / all_param:.2f}%"
         )

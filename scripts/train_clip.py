@@ -21,11 +21,12 @@ from src._shared import (
 
 def main():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
     train_config = load_config()
 
     model_name_identifier, device, report_to, run, USE_WANDB, SEED = setup_environment(train_config)
+    model_name_identifier += f"-{os.environ["CUDA_VISIBLE_DEVICES"]}"
 
     accelerate.utils.set_seed(SEED + 1)
     transformers.set_seed(SEED + 2)
@@ -42,7 +43,8 @@ def main():
 
     model = load_clip_model(train_config, device)
 
-    if train_config.lora.enabled:
+    print("Using lora:", train_config["lora"]["enabled"])
+    if train_config["lora"]["enabled"]:
         model = apply_lora_to_model(model, train_config)
     else:
         freeze_base_models(model)
