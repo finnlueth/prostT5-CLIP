@@ -85,7 +85,7 @@ class GOParser(AnnotationParser):
                         break
                     sentences[current_id] = {
                         "namespace": namespace,
-                        "sentence": f"The {namespace} is {current_name}." if self.with_aspect else current_name,
+                        "sentence": f"The {namespace} is {current_name}" if self.with_aspect else current_name,
                     }
                 elif not is_obsolete and line.startswith("is_a: "):
                     parent = line.split()[1]
@@ -122,18 +122,18 @@ class GOParser(AnnotationParser):
 
         return hierarchy, names, sentences
 
-    @lru_cache(maxsize=None)
     def _calculate_depths(self) -> dict:
         """Calculate the depth of each GO term in the hierarchy."""
         depths = {}
         visited = set()
 
+        @lru_cache(maxsize=None)
         def get_depth(term):
             if term in visited:
                 return depths[term]
 
             visited.add(term)
-            children = self.go_hierarchy.get(term, set())
+            children = self.go_reversed_hierarchy.get(term, set())
             if not children:
                 depths[term] = 0
                 return 0
@@ -142,7 +142,7 @@ class GOParser(AnnotationParser):
             depths[term] = max_child_depth + 1
             return depths[term]
 
-        for term in self.go_hierarchy:
+        for term in self.go_reversed_hierarchy:
             if term not in visited:
                 get_depth(term)
 
