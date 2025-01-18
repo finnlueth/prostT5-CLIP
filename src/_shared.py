@@ -109,7 +109,12 @@ def load_clip_model(train_config, device):
     model = ProtT5CLIP(model_config)
 
     if train_config["model"]["reload_from_checkpoint_path"]:
-        model.load_adapter("../" + train_config["model"]["reload_from_checkpoint_path"])
+        model_save_path = "../" + train_config["model"]["reload_from_checkpoint_path"]
+        if train_config["lora"]["enabled"]:
+            model.load_adapter(model_save_path)
+        else:
+            model.load_projections_from_safetensors(model_save_path)
+        
 
     model.to(device)
 
@@ -321,11 +326,46 @@ def save_model_and_logs(model, trainer, model_name_identifier, train_config):
     plt.close(fig)
 
     print("Model, config, and log saved to:", model_save_path)
+    return model_save_path
 
 
-def sanity_checks(model):
+def sanity_checks(model, train_config, model_save_path):
+    from src.model.utils import compare_model_parameters_state_dicts, compare_model_embeddings
+
     # reload model
-    # check that model parameters mismatch with reloaded model
-    # apply saved weights to reloaded model
-    # check that reloaded model parameters match with saved weights
-    pass
+    plm_name = train_config["model"]["protein_encoder_name"]
+    llm_name = train_config["model"]["text_encoder_name"]
+
+    plm_config = AutoConfig.from_pretrained(plm_name)
+    llm_config = AutoConfig.from_pretrained(llm_name, trust_remote_code=True)
+    model_config = ProtT5CLIPConfig(
+        name_or_path_plm=plm_name,
+        name_or_path_llm=llm_name,
+        plm_config=plm_config,
+        llm_config=llm_config,
+        output_hidden_states=True,
+        output_attentions=True,
+        return_dict=True,
+        projection_dim=train_config["model"]["text_projection_dim"],
+        logit_scale_init_value=train_config["model"]["logit_scale_init_value"],
+        device=model.device,
+    )
+    reloaded_model = ProtT5CLIP(model_config)
+    reloaded_model.to(model.device)
+
+    
+    if train_config["lora"]["enabled"]:
+        model = model.base_model.model
+    
+    models_match = compare_model_parameters_state_dicts(reloaded_model, model, should_match=False, verbose=True)
+    print("Models match (should mismatch):", models_match)
+    
+    if train_config["lora"]["enabled"]:
+        reloaded_model.load_adapter(model_save_path)
+    else:
+        reloaded_model.load_projections_from_safetensors(model_save_path)
+    
+    models_match = compare_model_parameters_state_dicts(reloaded_model, model, should_match=True, verbose=True)
+    print("Models match (should match):", models_match)
+
+    compare_model_embeddings(model, reloaded_model, train_config)
