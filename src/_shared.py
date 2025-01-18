@@ -293,6 +293,7 @@ def train_model(trainer):
 
 def save_model_and_logs(model, trainer, model_name_identifier, train_config):
     model_save_path = f"../tmp/models/{model_name_identifier}"
+    
     if train_config["lora"]["enabled"]:
         model.save_pretrained(
             save_directory=model_save_path
@@ -308,6 +309,7 @@ def save_model_and_logs(model, trainer, model_name_identifier, train_config):
             state_dict=state_dict,
         )
 
+    # save and plot training logs
     pd.DataFrame(trainer.state.log_history).to_csv(f"{model_save_path}/training_log.csv", index=False)
 
     with open(f"{model_save_path}/train_config.yaml", "w") as f:
@@ -321,5 +323,9 @@ def save_model_and_logs(model, trainer, model_name_identifier, train_config):
     print("Model, config, and log saved to:", model_save_path)
 
 
-def sanity_check(model, dataset, train_config):
+def sanity_checks(model):
+    # reload model
+    # check that model parameters mismatch with reloaded model
+    # apply saved weights to reloaded model
+    # check that reloaded model parameters match with saved weights
     pass

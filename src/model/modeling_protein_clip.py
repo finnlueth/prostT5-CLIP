@@ -61,7 +61,7 @@ def _switch_phi_padding_side(hidden_states, attention_mask):
     indices = torch.arange(seq_length, device=hidden_states.device)
     indices = indices.expand(hidden_states.size(0), -1)
     rolled_indices = (indices + pad_lengths.unsqueeze(1)) % seq_length
-    
+
     adjusted_hidden_states = torch.gather(hidden_states, 1, rolled_indices.unsqueeze(-1).expand(-1, -1, hidden_states.size(-1)))
     adjusted_attention_mask = torch.gather(attention_mask, 1, rolled_indices)
 
@@ -102,6 +102,11 @@ class ProtT5CLIP(PreTrainedModel):
             torch_dtype="auto",
         )
 
+        # print(type(config))
+        # print(type(config.plm_config))
+        # print(config.plm_config)
+        # print(config.plm_config.hidden_size)
+
         self.projection_dim = config.projection_dim
         self.protein_embed_dim = config.plm_config.hidden_size
         self.text_embed_dim = config.llm_config.hidden_size
@@ -139,7 +144,9 @@ class ProtT5CLIP(PreTrainedModel):
         is_phi_model = any("phi" in name.lower() for name in self.model_llm.config.architectures)
         if is_phi_model:
             last_hidden = outputs.hidden_states[-1]
-            adjusted_last_hidden, adjusted_attention_mask = _switch_phi_padding_side(hidden_states=last_hidden, attention_mask=text_attention_mask)
+            adjusted_last_hidden, adjusted_attention_mask = _switch_phi_padding_side(
+                hidden_states=last_hidden, attention_mask=text_attention_mask
+            )
             outputs.hidden_states = tuple(list(outputs.hidden_states[:-1]) + [adjusted_last_hidden])
             outputs.attention_mask = adjusted_attention_mask
         return outputs
@@ -235,7 +242,7 @@ class ProtT5CLIP(PreTrainedModel):
             proj_protein_embeds=proj_protein_embeds if self.config.output_proj_protein_embeds else None,
             proj_text_embeds=proj_text_embeds if self.config.output_proj_text_embeds else None,
         )
-        
+
     def print_trainable_parameters(self):
         """
         Prints the number of trainable parameters in the model.
@@ -250,3 +257,22 @@ class ProtT5CLIP(PreTrainedModel):
             f"trainable params: {trainable_params:,d} || all params: {all_param:,d} "
             f"|| trainable%: {100 * trainable_params / all_param:.2f}%"
         )
+        
+        
+    def load_projections_from_safetensors(self, path):
+        from safetensors.torch import load
+        
+        with open(path + "model.safetensors", "rb") as f:
+            data = f.read()
+        loaded = load(data)
+        
+        parameters = {
+            'logit_scale.scale': self.logit_scale.scale,
+            'protein_projection.weight': self.protein_projection.weight,
+            'text_projection.weight': self.text_projection.weight,
+        }
+        
+        for key in loaded:
+            if key in parameters:
+                parameters[key].data.copy_(loaded[key].data)
+

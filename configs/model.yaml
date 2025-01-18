@@ -3,9 +3,11 @@ custom_run_name: ""
 seed: 69 # 42
 verbose: false
 weights_and_biases:
-  enabled: true
+  enabled: false
   project: prot-clip
   report_to: wandb
+dataset:
+  path: "../tmp/data/train_val_GO_skimmed_processed"
 model:
   name: ProtT5CLIP
   protein_encoder_name: Rostlab/prot_t5_xl_uniref50
@@ -25,7 +27,7 @@ lora:
   use_rslora: false
   use_dora: false
 trainer:
-  learning_rate: 0.007 # 1e-4 == 0.0001, 0.001
+  learning_rate: 0.005 # 1e-4 == 0.0001, 0.001
   train_batch_size: 192 # for full lora: 20; for no lora: 300 or 128
   num_epochs: 6 # 24
   eval_batch_size: 16 #32
@@ -41,9 +43,9 @@ trainer:
   logging_strategy: 'steps'
   logging_steps: 1
   lr_scheduler_type: "cosine" # linear cosine cosine_with_min_lr
-  warmup_steps: 25
+  warmup_steps: 16
 scheduler:
-  min_lr_rate: 0.5
+  min_lr_rate: 0.2
   # num_warmup_steps: 25
   # num_flat_steps: 100
   # num_training_steps: 0

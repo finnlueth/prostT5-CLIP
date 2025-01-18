@@ -21,7 +21,7 @@ from src._shared import (
 
 def main():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     train_config = load_config()
 
@@ -54,6 +54,8 @@ def main():
     train_model(trainer)
 
     save_model_and_logs(model, trainer, model_name_identifier, train_config)
+
+    # todo: add sanity checks
 
 
 if __name__ == "__main__":
