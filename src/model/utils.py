@@ -107,3 +107,19 @@ def check_model_on_cuda(model):
             print("All model parameters are on CUDA")
         else:
             print("Some parameters are not on CUDA - see warnings above")
+    else:
+        print("CUDA is not available")
+        
+        
+def check_model_parameters_requires_grad(model):
+    """Check if all model parameters require gradients."""
+    grad_check_failed = False
+    for name, param in model.named_parameters():
+        if not param.requires_grad:
+            # print(f"WARNING: Parameter {name} does not require gradients")
+            grad_check_failed = True
+    if not grad_check_failed:
+        print("All model parameters require gradients")
+    else:
+        print("Some parameters do not require gradients - see warnings above")
+    

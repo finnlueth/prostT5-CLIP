@@ -4,6 +4,7 @@ import random
 import re
 from datetime import datetime
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -11,8 +12,8 @@ import yaml
 from datasets import load_from_disk
 from peft import (
     LoraConfig,
-    get_peft_model,
     PeftConfig,
+    get_peft_model,
 )
 from peft.utils.constants import TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING
 from transformers import (
@@ -22,24 +23,29 @@ from transformers import (
     TrainingArguments,
 )
 
-import wandb
 import src.model.utils as utils
-
-from src.plots.train_plots import plot_training_history
-import matplotlib.pyplot as plt
+import wandb
 
 # from accelerate.distributed import DistributedDataParallelKwargs
 from src.model.configuration_protein_clip import ProtT5CLIPConfig
 from src.model.data_collator_multi_input import DataCollatorForProtT5CLIP
 from src.model.metrics import metrics_factory
 from src.model.modeling_protein_clip import ProtT5CLIP
+from src.model.optimization import get_cosine_with_hard_restarts_schedule_with_warmup
 from src.model.trainer_protein_subset import ProteinSampleSubsetTrainer
+from src.plots.train_plots import plot_training_history
 
 
 def load_config():
     with open("../configs/model.yaml", "r") as f:
         train_config = yaml.safe_load(f)
     return train_config
+
+
+def clean_cach_garbage():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
 
 
 def setup_environment(train_config):
@@ -101,11 +107,13 @@ def load_clip_model(train_config, device):
     )
 
     model = ProtT5CLIP(model_config)
+
+    if train_config["model"]["reload_from_checkpoint_path"]:
+        model.load_adapter("../" + train_config["model"]["reload_from_checkpoint_path"])
+
     model.to(device)
 
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    gc.collect()
+    clean_cach_garbage()
 
     print("Loaded model...")
     utils.check_model_on_cuda(model)
@@ -145,13 +153,17 @@ def apply_lora_to_model(model, train_config):
 
 def apply_peft_to_model(model, train_config):
     modules_to_save = ["protein_projection", "text_projection", "logit_scale"]
-    
+
     peft_config = PeftConfig(
         inference_mode=False,
         modules_to_save=modules_to_save,
     )
-    
+
     model = get_peft_model(model, peft_config)
+    
+    print("modules_to_save:", modules_to_save)
+    model.print_trainable_parameters()
+    
     return model
 
 
@@ -164,6 +176,7 @@ def freeze_base_models(model):
         param.requires_grad = False
 
     print("Base LLM and PLM models frozen")
+    model.print_trainable_parameters()
 
 
 def load_tokenizers(train_config):
@@ -234,16 +247,27 @@ def setup_trainer(model, dataset, train_config, model_name_identifier, USE_WANDB
         logging_strategy="steps",
         logging_steps=train_config["trainer"]["logging_steps"],
         seed=train_config["seed"],
+        lr_scheduler_type=train_config["trainer"]["lr_scheduler_type"],
+        warmup_steps=train_config["trainer"]["warmup_steps"],
+        # lr_scheduler_kwargs=train_config["scheduler"],
     )
 
     trainer = ProteinSampleSubsetTrainer(
         model=model,
         args=training_args,
-        train_dataset=dataset["train"],  # .select(range(512)), #!!!
+        train_dataset=dataset["train"],#.select(range(512)), #!!!
         eval_dataset=dataset["test"],
         data_collator=data_collator,
         compute_metrics=metrics_factory(),
         eval_sample_size=train_config["trainer"]["eval_sample_size"],
+        # optimizers=(None, get_cosine_with_hard_restarts_schedule_with_warmup(
+        #     optimizer=None,
+        #     num_warmup_steps=train_config["scheduler"]["num_warmup_steps"],
+        #     num_flat_steps=train_config["scheduler"]["num_flat_steps"],
+        #     num_training_steps=train_config["scheduler"]["num_training_steps"],
+        #     num_cycles=train_config["scheduler"]["num_cycles"],
+        #     min_lr_ratio=train_config["scheduler"]["min_lr_ratio"],
+        # ))
     )
 
     return trainer
@@ -269,11 +293,27 @@ def train_model(trainer):
 
 def save_model_and_logs(model, trainer, model_name_identifier, train_config):
     model_save_path = f"../tmp/models/{model_name_identifier}"
-    model.save_pretrained(model_save_path)
+    
+    if train_config["lora"]["enabled"]:
+        model.save_pretrained(
+            save_directory=model_save_path
+        )
+    else:
+        state_dict = {
+            'protein_projection.weight': model.protein_projection.weight,
+            'text_projection.weight': model.text_projection.weight,
+            'logit_scale.scale': model.logit_scale.scale
+        }
+        model.save_pretrained(
+            save_directory=model_save_path,
+            state_dict=state_dict,
+        )
 
+    # save and plot training logs
     pd.DataFrame(trainer.state.log_history).to_csv(f"{model_save_path}/training_log.csv", index=False)
 
     with open(f"{model_save_path}/train_config.yaml", "w") as f:
+        train_config['model']['reload_from_checkpoint_path'] = model_save_path
         yaml.dump(train_config, f, sort_keys=False)
 
     fig = plot_training_history(log_history=pd.DataFrame(trainer.state.log_history), train_config=train_config)
@@ -281,3 +321,11 @@ def save_model_and_logs(model, trainer, model_name_identifier, train_config):
     plt.close(fig)
 
     print("Model, config, and log saved to:", model_save_path)
+
+
+def sanity_checks(model):
+    # reload model
+    # check that model parameters mismatch with reloaded model
+    # apply saved weights to reloaded model
+    # check that reloaded model parameters match with saved weights
+    pass

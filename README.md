@@ -13,12 +13,17 @@ The ultimate goals of this project are twofold: 1. Protein Design: Infer protein
 By leveraging the strengths of both protein and language models, we aim to develop a powerful tool for bidirectional protein-text understanding and generation.
 
 ## Training
+
 for singe gpu training
+
 ```sh
 cd scripts
 python train_clip.py
+nohup python train_clip.py &
 ```
+
 or for distributed (multi gpu) training
+
 ```sh
 cd scripts
 accelerate launch train_clip_ddp.py
@@ -60,7 +65,19 @@ docker container rm finn-container-prostt5-clip
 * https://github.com/wukevin/proteinclip
 * https://github.com/pan-emily/protein-clip
 
-
 ## Good Checkpoints
 
-- First good train run: protT5-CLIP-2025-01-02-22-58-37
+- First good train run, full lora on plm and llm: protT5-CLIP-2025-01-02-22-58-37
+- Second good train run, full lora on plm and llm: protT5-CLIP-2025-01-12-14-13-15-ddp
+- No Lora, no plm, no llm:
+
+## Drop PLM Layer for LLM only inference
+
+```python
+import gc
+model.model_plm = None
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+gc.collect()
+```

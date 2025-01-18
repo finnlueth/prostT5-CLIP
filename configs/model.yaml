@@ -1,11 +1,13 @@
 project_name: protT5-CLIP
 custom_run_name: ""
-seed: 42
+seed: 69 # 42
 verbose: false
 weights_and_biases:
-  enabled: true
+  enabled: false
   project: prot-clip
   report_to: wandb
+dataset:
+  path: "../tmp/data/train_val_GO_skimmed_processed"
 model:
   name: ProtT5CLIP
   protein_encoder_name: Rostlab/prot_t5_xl_uniref50
@@ -15,26 +17,37 @@ model:
   logit_scale_init_value: 2.6592
   text_projection_dim: 1024
   protein_projection_dim: 1024
+  reload_from_checkpoint_path: ""
+  # reload_from_checkpoint_path: "tmp/models/protT5-CLIP-2025-01-12-14-13-15-ddp"
 lora:
-  enabled: true
+  enabled: false
   r: 8
   lora_alpha: 16
   lora_dropout: 0.05
   use_rslora: false
   use_dora: false
 trainer:
-  learning_rate: 0.0001 # 1e-4 == 0.0001
-  train_batch_size: 20
-  num_epochs: 6
-  eval_batch_size: 16
+  learning_rate: 0.005 # 1e-4 == 0.0001, 0.001
+  train_batch_size: 192 # for full lora: 20; for no lora: 300 or 128
+  num_epochs: 6 # 24
+  eval_batch_size: 16 #32
   eval_strategy: steps
-  eval_steps: 32
+  eval_steps: 16
   eval_on_start: true
   eval_sample_size: 256
   batch_eval_metrics: true
   remove_unused_columns: false
-  save_strategy: steps
+  save_strategy: 'no' #steps
   save_steps: 300
   save_total_limit: 5
-  logging_strategy: steps
+  logging_strategy: 'steps'
   logging_steps: 1
+  lr_scheduler_type: "cosine" # linear cosine cosine_with_min_lr
+  warmup_steps: 16
+scheduler:
+  min_lr_rate: 0.2
+  # num_warmup_steps: 25
+  # num_flat_steps: 100
+  # num_training_steps: 0
+  # num_cycles: 1
+  # min_lr_ratio: 0.5

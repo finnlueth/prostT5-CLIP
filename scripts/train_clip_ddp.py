@@ -22,13 +22,11 @@ from src._shared import (
 
 def main():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3"
-    
+    os.environ["CUDA_VISIBLE_DEVICES"] = "2" # "0,1,2,3"
+
     accelerator = Accelerator()
 
     train_config = load_config()
-
-    # todo: add continue training from checkpoint
 
     model_name_identifier, device, report_to, run, USE_WANDB, SEED = setup_environment(train_config)
     model_name_identifier = model_name_identifier + "-ddp"
@@ -40,19 +38,22 @@ def main():
     torch.manual_seed(SEED + 3)
     random.seed(SEED + 4)
 
+    # todo: add continue training from checkpoint
+
     tokenizer_plm, tokenizer_llm = load_tokenizers(train_config)
     dataset = prepare_dataset(train_config, tokenizer_plm, tokenizer_llm)
-
-    model = load_clip_model(train_config, accelerator.device)
-
-    if train_config["lora"]["enabled"]:
-        model = apply_lora_to_model(model, train_config)
-    else:
-        freeze_base_models(model)
 
     if accelerator.is_main_process:
         print(dataset)
         print(dataset["train"][0])
+
+    model = load_clip_model(train_config, accelerator.device)
+
+    print("Using lora:", train_config["lora"]["enabled"])
+    if train_config["lora"]["enabled"]:
+        model = apply_lora_to_model(model, train_config)
+    else:
+        freeze_base_models(model)
 
     trainer = setup_trainer(model, dataset, train_config, model_name_identifier, USE_WANDB, tokenizer_plm, tokenizer_llm)
 
@@ -65,6 +66,8 @@ def main():
     if accelerator.is_main_process:
         unwrapped_model = accelerator.unwrap_model(model)
         save_model_and_logs(unwrapped_model, trainer, model_name_identifier, train_config)
+
+    # todo: add sanity checks
 
 
 if __name__ == "__main__":
