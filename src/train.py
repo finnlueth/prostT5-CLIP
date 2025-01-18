@@ -1,19 +1,18 @@
 import logging
-from pathlib import Path
 
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 
 from src.data.data_module import ProteinGODataModule
-from src.models.model import ProteinCLIP
+from src.model.model import ProteinCLIP
 from src.utils.config import get_params
 
 
 def main():
     logging.basicConfig(level=logging.INFO)
 
-    config = get_params(Path(__file__).stem)
+    config = get_params("train")
 
     wandb_logger = WandbLogger(
         project=config.get("project", "protein-clip"),
@@ -43,14 +42,14 @@ def main():
 
     trainer = pl.Trainer(
         max_epochs=config["max_epochs"],
-        accelerator="gpu",
+        accelerator=config["accelerator"],
         devices=1,
-        precision="32-true",
-        gradient_clip_val=None,
+        precision=config["precision"],
+        gradient_clip_val=config.get("gradient_clip_val", None),
         callbacks=[early_stop, checkpoint],
         logger=wandb_logger,
         enable_model_summary=True,
-        enable_progress_bar=False,
+        enable_progress_bar=True,
     )
 
     trainer.fit(model, datamodule=data_module)

@@ -37,10 +37,10 @@ dataset:
   protein: "cafa5/train/train_sequences.fasta"
   metadata: "output/metadata.tsv"
   go_sentence: "output/go_sentences.tsv"
-  type: "ProteinGOContrastiveConcatenatedDataset"
+  type: "ProteinGOContrastiveDataset"
   seed: 42
   test_size: 0.1
-  out: "datasets/protein_go_contrastive_concatenated"
+  out: "datasets/protein_go_contrastive"
 
 embed_seq:
   device: "cuda"
@@ -75,3 +75,28 @@ embed_vis:
   GO: "output/go_sentences.tsv"
   text_embeddings: "embeddings/text_embeddings.h5"
   sequence_embeddings: "embeddings/sequence_embeddings.h5"
+
+train:
+  dataset: "datasets/protein_go_contrastive"
+  prot_emb_file: "embeddings/sequence_embeddings.h5"
+  text_emb_file: "embeddings/text_embeddings.h5"
+  num_workers: 4
+  seed: 42
+  val_size: 0.1
+  project: "protein-clip"
+  run_name: "fine-tuning-protein-clip"
+  prot_embed_dim: 1024
+  text_embed_dim: 3072
+  projected_dim: 1024
+  intermediate_dim: 2048
+  num_hidden: 6
+  dropout: 0.1
+  temperature: 0.1
+  accelerator: "gpu"
+  precision: "32-true"
+  batch_size: 32
+  lr: 0.0001
+  max_epochs: 20
+  gradient_clip_val: 1.0
+  logit_scale_required: True
+  padding: False

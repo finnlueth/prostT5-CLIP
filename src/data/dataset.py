@@ -110,7 +110,7 @@ class ProteinGOContrastiveDataset(HuggingFaceDatasetCreator):
         return (
             Dataset.from_pandas(self._load_data(), features=features)
             .shuffle(seed=self.seed)
-            .train_test_split(test_size=self.test_size)
+            .train_test_split(test_size=self.test_size, stratify_by_column="label", seed=self.seed)
         )
 
 
@@ -141,7 +141,7 @@ class ProteinGOConcatenatedDataset(HuggingFaceDatasetCreator):
         return (
             Dataset.from_dict(data, features=features)
             .shuffle(seed=self.seed)
-            .train_test_split(test_size=self.test_size)
+            .train_test_split(test_size=self.test_size, seed=self.seed)
         )
 
 
@@ -212,7 +212,7 @@ class ProteinGOContrastiveConcatenatedDataset(HuggingFaceDatasetCreator):
         return (
             Dataset.from_dict(data, features=features)
             .shuffle(seed=self.seed)
-            .train_test_split(test_size=self.test_size)
+            .train_test_split(test_size=self.test_size, seed=self.seed)
         )
 
 
