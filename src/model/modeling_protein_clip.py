@@ -260,11 +260,11 @@ class ProtT5CLIP(PreTrainedModel):
         
         
     def load_projections_from_safetensors(self, path):
-        from safetensors.torch import load
+        import safetensors.torch
         
         with open(path + "model.safetensors", "rb") as f:
             data = f.read()
-        loaded = load(data)
+        loaded = safetensors.torch.load(data)
         
         parameters = {
             'logit_scale.scale': self.logit_scale.scale,
