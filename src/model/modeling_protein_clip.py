@@ -1,18 +1,18 @@
-import torch
-import torch.nn as nn
+import os
 import typing as T
-from transformers import (
-    AutoModelForCausalLM,
-    T5EncoderModel,
-    PreTrainedModel,
-    modeling_utils,
-)
-
 from typing import Optional
 
+import torch
+import torch.nn as nn
+from transformers import (
+    AutoModelForCausalLM,
+    PreTrainedModel,
+    T5EncoderModel,
+    modeling_utils,
+)
 from transformers.models.clip.modeling_clip import (
-    clip_loss,
     _get_vector_norm,
+    clip_loss,
 )
 
 from .configuration_protein_clip import ProtT5CLIPConfig
@@ -257,22 +257,20 @@ class ProtT5CLIP(PreTrainedModel):
             f"trainable params: {trainable_params:,d} || all params: {all_param:,d} "
             f"|| trainable%: {100 * trainable_params / all_param:.2f}%"
         )
-        
-        
+
     def load_projections_from_safetensors(self, path):
         import safetensors.torch
-        
-        with open(path + "model.safetensors", "rb") as f:
+
+        with open(os.path.join(path, "model.safetensors"), "rb") as f:
             data = f.read()
         loaded = safetensors.torch.load(data)
-        
+
         parameters = {
-            'logit_scale.scale': self.logit_scale.scale,
-            'protein_projection.weight': self.protein_projection.weight,
-            'text_projection.weight': self.text_projection.weight,
+            "logit_scale.scale": self.logit_scale.scale,
+            "protein_projection.weight": self.protein_projection.weight,
+            "text_projection.weight": self.text_projection.weight,
         }
-        
+
         for key in loaded:
             if key in parameters:
                 parameters[key].data.copy_(loaded[key].data)
-
