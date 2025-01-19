@@ -18,7 +18,7 @@ line-length = 120
 # target-version = "py310"
 
 [tool.pylint]
-max-line-length = 128
+max-line-length = 80
 disable = []
 
 
