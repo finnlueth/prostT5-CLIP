@@ -111,7 +111,7 @@ def smart_mean_pooling(hidden_states, attention_mask):
     mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size())
     masked_embeddings = hidden_states * mask_expanded
     sum_embeddings = torch.sum(masked_embeddings, dim=1)
-    sum_mask = torch.clamp(torch.sum(attention_mask, dim=1).unsqueeze(-1), min=1e-9)
+    sum_mask = torch.sum(attention_mask, dim=1).unsqueeze(-1)
     mean_pooled = sum_embeddings / sum_mask
 
     return mean_pooled
@@ -247,11 +247,6 @@ class ProtT5CLIP(PreTrainedModel):
             text_embeds = text_outputs["hidden_states"][-1].to(self._dtype)
             # text_embeds = self.drophout(text_embeds)
             proj_text_embeds = self.text_projection(text_embeds)
-
-        # TODO: check if this is needed or ask somebody about it
-        # if attention_mask is not None:
-        #     protein_embeds = protein_embeds * attention_mask["attention_mask_sequence"].unsqueeze(-1)
-        #     text_embeds = text_embeds * attention_mask["attention_mask_text"].unsqueeze(-1)
 
         loss = None
         if proj_text_embeds is not None and proj_protein_embeds is not None:
