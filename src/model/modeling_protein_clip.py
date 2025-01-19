@@ -68,6 +68,55 @@ def _switch_phi_padding_side(hidden_states, attention_mask):
     return adjusted_hidden_states, adjusted_attention_mask
 
 
+def attention_mask_to_trim_indices(attention_mask, trim_beginning=0, trim_end=0):
+    """
+    Finds indices of first n and last m 1s in attention mask and sets them to 0.
+    Vectorized implementation.
+    Args:
+        attention_mask: tensor of shape (batch_size, seq_length)
+        trim_beginning: number of 1s to trim from beginning
+        trim_end: number of 1s to trim from end
+    Returns:
+        Modified attention mask with first n and last m 1s set to 0
+    """
+    if trim_beginning == 0 and trim_end == 0:
+        return attention_mask
+
+    attention_mask = attention_mask.clone()
+
+    cumsum_forward = torch.cumsum(attention_mask, dim=1)
+
+    cumsum_backward = torch.cumsum(attention_mask.flip(dims=[1]), dim=1).flip(dims=[1])
+
+    if trim_beginning > 0:
+        beginning_mask = cumsum_forward > trim_beginning
+        attention_mask = attention_mask * beginning_mask
+
+    if trim_end > 0:
+        end_mask = cumsum_backward > trim_end
+        attention_mask = attention_mask * end_mask
+
+    return attention_mask
+
+
+def smart_mean_pooling(hidden_states, attention_mask):
+    """
+    Performs mean pooling only over tokens where attention mask is 1.
+    Args:
+        hidden_states: tensor of shape (batch_size, seq_length, hidden_dim)
+        attention_mask: tensor of shape (batch_size, seq_length)
+    Returns:
+        Mean pooled representation of shape (batch_size, hidden_dim)
+    """
+    mask_expanded = attention_mask.unsqueeze(-1).expand(hidden_states.size())
+    masked_embeddings = hidden_states * mask_expanded
+    sum_embeddings = torch.sum(masked_embeddings, dim=1)
+    sum_mask = torch.clamp(torch.sum(attention_mask, dim=1).unsqueeze(-1), min=1e-9)
+    mean_pooled = sum_embeddings / sum_mask
+
+    return mean_pooled
+
+
 # Defined as Module to be able to save it with peft
 class LogitScale(nn.Module):
     def __init__(self, init_value, dtype=torch.float32):
@@ -206,8 +255,11 @@ class ProtT5CLIP(PreTrainedModel):
 
         loss = None
         if proj_text_embeds is not None and proj_protein_embeds is not None:
-            pe = torch.mean(proj_protein_embeds, dim=1)
-            te = torch.mean(proj_text_embeds, dim=1)
+            am_pe = attention_mask_to_trim_indices(attention_mask_sequence, trim_beginning=1)
+            am_te = attention_mask_to_trim_indices(attention_mask_text)
+            
+            pe = smart_mean_pooling(proj_protein_embeds, am_pe)
+            te = smart_mean_pooling(proj_text_embeds, am_te)
 
             pe = pe / _get_vector_norm(pe)
             te = te / _get_vector_norm(te)
@@ -259,6 +311,9 @@ class ProtT5CLIP(PreTrainedModel):
         )
 
     def load_projections_from_safetensors(self, path):
+        """
+        Loads the projections from a safetensors file.
+        """
         import safetensors.torch
 
         with open(os.path.join(path, "model.safetensors"), "rb") as f:

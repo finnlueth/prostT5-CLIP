@@ -4,6 +4,7 @@ import random
 import accelerate
 import torch
 import transformers
+from datasets import load_from_disk
 
 from src._shared import (
     apply_lora_to_model,
@@ -22,7 +23,7 @@ from src._shared import (
 
 def main():
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0" #"0,1,2,3"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "3" #"0,1,2,3"
 
     train_config = load_config()
 
@@ -35,7 +36,8 @@ def main():
     random.seed(SEED + 4)
 
     tokenizer_plm, tokenizer_llm = load_tokenizers(train_config)
-    dataset = prepare_dataset(train_config, tokenizer_plm, tokenizer_llm)
+    # dataset = prepare_dataset(train_config, tokenizer_plm, tokenizer_llm)
+    dataset = load_from_disk(train_config["dataset"]["path"])
 
     print(dataset)
     print(dataset["train"][0])
