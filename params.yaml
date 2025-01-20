@@ -30,7 +30,7 @@ cluster:
 metadata:
   data_folder: "cafa5/train"
   cluster_folder: "clusters"
-  translated_with_aspect: True
+  translated_with_aspect: False
   out: "output"
 
 dataset:
@@ -38,10 +38,10 @@ dataset:
   metadata: "output/metadata.tsv"
   go_sentence: "output/go_sentences.tsv"
   go-basic: "cafa5/train/go-basic.obo"
-  type: "ProteinGOConcatenatedRandomDataset"
+  type: "ProteinReducedGOConcatenatedDataset"
   seed: 42
   test_size: 0.1
-  out: "datasets/protein_go_concatenated_random"
+  out: "datasets/protein_reduced_go_concatenated"
 
 embed_seq:
   device: "cuda"
@@ -57,13 +57,13 @@ embed_seq:
     sequence: "cafa5/test/testsuperset.fasta"
 
 embed_text:
-  sentence: "output/go_sentences.tsv"
+  source: "datasets/protein_reduced_go_concatenated"
   model: "microsoft/Phi-3.5-mini-instruct"
   tokenizer: "microsoft/Phi-3.5-mini-instruct"
   sentence_level: "sentence_embeddings"
   max_len: 1024
   device: "cuda"
-  output: "embeddings/text_embeddings.h5"
+  output: "embeddings/text_reduced_go_concatenated.h5"
 
 embed_vis:
   subsample: 1000
@@ -78,24 +78,25 @@ embed_vis:
   sequence_embeddings: "embeddings/sequence_embeddings.h5"
 
 train:
-  dataset: "datasets/protein_go_contrastive"
+  dataset: "datasets/protein_reduced_go_concatenated"
   prot_emb_file: "embeddings/sequence_embeddings.h5"
-  text_emb_file: "embeddings/text_embeddings.h5"
+  # text_emb_file: "embeddings/text_embeddings.h5"
   go_sentence: "output/go_sentences.tsv"
-  num_workers: 4
+  num_workers: 1
   seed: 42
   val_size: 0.1
   project: "protein-clip"
-  run_name: "CosineContrastiveLoss"
+  run_name: "CLIPLoss-ReducedGOConcatenated"
   prot_embed_dim: 1024
   text_embed_dim: 3072
   projected_dim: 1024
   intermediate_dim: 2048
   num_hidden: 3
-  dropout: 0.0
-  loss: "CosineContrastiveLoss"
+  dropout: 0.1
+  activation: "GELU"
+  loss: "CLIPLoss"
   loss_params:
-    margin: 0.75
+    temperature: 0.07
   accelerator: "gpu"
   precision: "32-true"
   batch_size: 128

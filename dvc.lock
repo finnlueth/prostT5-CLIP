@@ -21,8 +21,8 @@ stages:
       size: 119091574
     - path: src/utils/annotation.py
       hash: md5
-      md5: 761014dfb32fb459a9e4aef1f1c60d39
-      size: 10513
+      md5: 2a46d7bcd3bccd6e72ded7de0dd5dd39
+      size: 10984
     - path: src/utils/metadata.py
       hash: md5
       md5: 5332810e4608ece1bcdf5548194e8907
@@ -32,15 +32,15 @@ stages:
         metadata.cluster_folder: clusters
         metadata.data_folder: cafa5/train
         metadata.out: output
-        metadata.translated_with_aspect: true
+        metadata.translated_with_aspect: false
     outs:
     - path: output/go_sentences.tsv
       hash: md5
-      md5: 3961a1c6838ea630bc7c4c7a9f095f9e
-      size: 4249705
+      md5: 7e7a550df852c9f6bfc98d75d1dbb0b2
+      size: 3125257
     - path: output/metadata.tsv
       hash: md5
-      md5: b2002dc87b050dc6b1853e8a2718735a
+      md5: 85597bcf2456347a9f256de23b35162a
       size: 28516114
   embed_seq:
     cmd: python -m src.data.embed_seq
