@@ -14,6 +14,72 @@ from torchmetrics import MeanMetric
 import wandb
 
 
+class CLIPLoss(nn.Module):
+    """
+    CLIP loss function.
+    Computes contrastive loss for protein-text pairs.
+    Extends functionality to include projections and return projected embeddings.
+    """
+
+    def __init__(
+        self,
+        temperature: float = 0.07,
+    ):
+        """
+        Initializes the CLIPLoss.
+
+        Args:
+            temperature (float): Initial temperature scaling factor.
+            learn_temperature (bool): If True, makes temperature a learnable parameter.
+            prot_projection (nn.Module): Projection head for protein embeddings.
+            text_projection (nn.Module): Projection head for text embeddings.
+        """
+        super(CLIPLoss, self).__init__()
+        self.temperature = nn.Parameter(torch.tensor(temperature), requires_grad=True)
+
+    def contrastive_loss(self, logits: torch.Tensor) -> torch.Tensor:
+        """
+        Computes the cross-entropy loss for contrastive learning.
+
+        Args:
+            logits (torch.Tensor): Logits tensor of shape [batch_size, batch_size].
+
+        Returns:
+            torch.Tensor: Contrastive loss.
+        """
+        labels = torch.arange(logits.size(0), device=logits.device)
+        loss = F.cross_entropy(logits, labels)
+        return loss
+
+    def forward(
+        self, prot_embs: torch.Tensor, text_embs: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Computes the CLIP loss using protein and text embeddings.
+
+        Args:
+            prot_embs (torch.Tensor): Projected protein embeddings of shape [batch_size, prot_embed_dim].
+            text_embs (torch.Tensor): Projected text embeddings of shape [batch_size, text_embed_dim].
+
+        Returns:
+            tuple: (loss, output_prot_embs, output_text_embs)
+                - loss (torch.Tensor): Computed CLIP loss.
+                - output_prot_embs (torch.Tensor): Projected protein embeddings.
+                - output_text_embs (torch.Tensor): Projected text embeddings.
+        """
+        prot_norm = F.normalize(prot_embs, p=2, dim=-1)
+        text_norm = F.normalize(text_embs, p=2, dim=-1)
+
+        similarity = torch.matmul(prot_norm, text_norm.t()) / self.temperature
+
+        loss_text = self.contrastive_loss(similarity)
+        loss_protein = self.contrastive_loss(similarity.t())
+
+        loss = (loss_text + loss_protein) / 2.0
+
+        return loss, prot_norm, text_norm
+
+
 class BinaryContrastiveLoss(nn.Module):
     """
     Binary contrastive loss module that computes loss in a symmetrical way.
@@ -23,7 +89,7 @@ class BinaryContrastiveLoss(nn.Module):
         super().__init__()
         self.criterion = nn.BCEWithLogitsLoss()
 
-    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """
         Computes binary cross-entropy loss in a symmetrical way:
         once on logits, once on logits transposed.
@@ -34,13 +100,14 @@ class BinaryContrastiveLoss(nn.Module):
 
         Returns:
             torch.Tensor: Symmetrical binary contrastive loss.
+            torch.Tensor: Logits.
         """
         assert logits.shape == labels.shape, "Logits and labels must have the same shape."
 
         loss_a = self.criterion(logits, labels)
         loss_b = self.criterion(logits.t(), labels)
 
-        return 0.5 * (loss_a + loss_b)
+        return 0.5 * (loss_a + loss_b), logits
 
 
 class CosineContrastiveLoss(nn.Module):
@@ -52,25 +119,32 @@ class CosineContrastiveLoss(nn.Module):
         super().__init__()
         self.criterion = nn.CosineEmbeddingLoss(margin=margin)
 
-    def forward(self, prot_norm: torch.Tensor, text_norm: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, prot_embs: torch.Tensor, text_embs: torch.Tensor, labels: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Computes cosine contrastive loss in a symmetrical way:
         once on prot_norm, once on text_norm.
 
         Args:
-            prot_norm (torch.Tensor): normalized Protein embeddings of shape [B, D].
-            text_norm (torch.Tensor): normalized Text embeddings of shape [B, D].
+            prot_embs (torch.Tensor): Protein embeddings of shape [B, D].
+            text_embs (torch.Tensor): Text embeddings of shape [B, D].
             labels (torch.Tensor): Binary labels (1 or 0) of shape [B].
 
         Returns:
             torch.Tensor: Symmetrical cosine contrastive loss.
+            torch.Tensor: Normalized protein embeddings.
+            torch.Tensor: Normalized text embeddings.
         """
         targets = labels.clone()
         targets[targets == 0] = -1
 
+        prot_norm = F.normalize(prot_embs, p=2, dim=-1)
+        text_norm = F.normalize(text_embs, p=2, dim=-1)
+
         loss = self.criterion(prot_norm, text_norm, targets)
 
-        return loss
+        return loss, prot_norm, text_norm
 
 
 class ContrastiveNTXentLoss(nn.Module):
@@ -83,7 +157,9 @@ class ContrastiveNTXentLoss(nn.Module):
         self.temperature = temperature
         self.criterion = nn.BCEWithLogitsLoss()
 
-    def forward(self, prot_emb: torch.Tensor, text_emb: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, prot_emb: torch.Tensor, text_emb: torch.Tensor, labels: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Computes contrastive loss for positive and negative pairs.
 
@@ -94,13 +170,15 @@ class ContrastiveNTXentLoss(nn.Module):
 
         Returns:
             torch.Tensor: Contrastive loss.
+            torch.Tensor: Normalized protein embeddings.
+            torch.Tensor: Normalized text embeddings.
         """
         prot_norm = F.normalize(prot_emb, p=2, dim=-1)
         text_norm = F.normalize(text_emb, p=2, dim=-1)
 
         similarity = torch.sum(prot_norm * text_norm, dim=-1) / self.temperature
 
-        return self.criterion(similarity, labels)
+        return self.criterion(similarity, labels), prot_norm, text_norm
 
 
 class EuclideanContrastiveLoss(nn.Module):
@@ -121,13 +199,88 @@ class EuclideanContrastiveLoss(nn.Module):
         self.criterion = nn.TripletMarginLoss(margin=margin, p=2)
 
 
+class SupervisedContrastiveLoss(nn.Module):
+    """
+    Supervised Contrastive Loss as described in:
+    Khosla, P., Teterwak, P., Wang, C., Sarna, A., Tian, Y., Isola, P. & Krishnan, D. Supervised
+    Contrastive Learning. NeurIPS 2020.
+    """
+
+    def __init__(self, temperature: float = 0.07):
+        super(SupervisedContrastiveLoss, self).__init__()
+        self.temperature = temperature
+        self.eps = 1e-9
+
+    def forward(self, anchor: torch.Tensor, positive: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
+        """
+        Computes the Supervised Contrastive Loss.
+
+        Args:
+            anchor (torch.Tensor): Anchor embeddings of shape [B, D].
+            positive (torch.Tensor): Positive embeddings of shape [B, D].
+            labels (torch.Tensor): Binary labels of shape [B].
+
+        Returns:
+            torch.Tensor: Supervised contrastive loss.
+        """
+        batch_size = anchor.size(0)
+
+        # Normalize the embeddings
+        anchor_norm = F.normalize(anchor, p=2, dim=1)  # [B, D]
+        positive_norm = F.normalize(positive, p=2, dim=1)  # [B, D]
+
+        # Concatenate anchor and positive to compute the similarity matrix
+        embeddings = torch.cat([anchor_norm, positive_norm], dim=0)  # [2B, D]
+
+        # Compute cosine similarity matrix
+        similarity_matrix = torch.matmul(embeddings, embeddings.T)  # [2B, 2B]
+
+        # Exponentiate the similarity matrix divided by temperature
+        similarity_matrix = similarity_matrix / self.temperature
+        similarity_matrix = torch.exp(similarity_matrix)
+
+        # Create mask to exclude self-comparisons
+        mask = torch.eye(2 * batch_size, dtype=torch.bool).to(embeddings.device)
+        similarity_matrix = similarity_matrix.masked_fill(mask, 0)
+
+        # Create labels for anchor and positive
+        labels = labels.contiguous().view(-1, 1)
+        labels = labels.repeat(2, 1)
+        similarity_mask = torch.eq(labels, labels.T).float()
+
+        # Compute the denominator
+        denom = similarity_matrix.sum(1, keepdim=True) + self.eps
+
+        # Compute the log probability
+        log_prob = similarity_matrix / denom
+        log_prob = torch.log(log_prob + self.eps)
+
+        # Compute the mean log-likelihood over positives
+        positives = similarity_mask * (1 - mask.float())
+        num_positives = positives.sum(1)
+
+        # Avoid division by zero
+        loss = -(log_prob * positives).sum(1) / num_positives.clamp(min=1.0)
+        loss = loss.mean()
+
+        return loss
+
+
 class ProjectionHead(nn.Module):
     """
     A flexible projection head that can have a variable number of hidden layers.
     Each hidden layer consists of Linear -> LayerNorm -> GELU -> Dropout.
     """
 
-    def __init__(self, input_dim: int, intermediate_dim: int, projected_dim: int, num_hidden: int, dropout: float):
+    def __init__(
+        self,
+        input_dim: int,
+        intermediate_dim: int,
+        projected_dim: int,
+        num_hidden: int,
+        dropout: float,
+        activation: str = "GELU",
+    ):
         super(ProjectionHead, self).__init__()
         layers = []
         current_dim = input_dim
@@ -137,7 +290,7 @@ class ProjectionHead(nn.Module):
                 [
                     nn.Linear(current_dim, intermediate_dim),
                     nn.LayerNorm(intermediate_dim),
-                    nn.GELU(),
+                    getattr(nn, activation)(),
                     nn.Dropout(dropout),
                 ]
             )
@@ -155,6 +308,7 @@ class ProteinCLIP(pl.LightningModule):
     def __init__(self, config: dict):
         super().__init__()
 
+        self.batch_size = config["batch_size"]
         self.save_hyperparameters()
 
         self.text_projection = ProjectionHead(
@@ -163,6 +317,7 @@ class ProteinCLIP(pl.LightningModule):
             projected_dim=config["projected_dim"],
             num_hidden=config["num_hidden"],
             dropout=config["dropout"],
+            activation=config["activation"],
         )
 
         self.prot_projection = ProjectionHead(
@@ -171,6 +326,7 @@ class ProteinCLIP(pl.LightningModule):
             projected_dim=config["projected_dim"],
             num_hidden=config["num_hidden"],
             dropout=config["dropout"],
+            activation=config["activation"],
         )
 
         self.learning_rate = config.get("learning_rate", 1e-4)
@@ -190,26 +346,21 @@ class ProteinCLIP(pl.LightningModule):
         self.out = config["out"]
         self.reducer = umap.UMAP(**config["umap_params"])
 
-    def forward(self, prot_emb: torch.Tensor, text_emb: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        prot_norm = F.normalize(self.prot_projection(prot_emb), p=2, dim=-1)
-        text_norm = F.normalize(self.text_projection(text_emb), p=2, dim=-1)
-
-        return prot_norm, text_norm
-
     def training_step(self, batch, batch_idx) -> torch.Tensor:
         prot_embs, text_embs, labels = batch["prot_emb"], batch["text_emb"], batch["label"]
 
-        prot_norm, text_norm = self(prot_embs, text_embs)
+        prot_embs = self.prot_projection(prot_embs)
+        text_embs = self.text_projection(text_embs)
 
         # logit_scale = self.model.logit_scale.exp().clamp(max=50)
-        loss = self.loss(prot_norm, text_norm, labels)
+        loss, prot_norm, text_norm = self.loss(prot_embs, text_embs, labels)
 
         cosine_sim = F.cosine_similarity(prot_norm, text_norm, dim=-1)
         positive_cos_sim = cosine_sim[labels == 1]
 
         self.train_cosine(positive_cos_sim)
 
-        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True)
+        self.log("train_loss", loss, prog_bar=True, on_step=True, on_epoch=True, batch_size=self.batch_size)
         self.log("train_cosine", self.train_cosine, prog_bar=True, on_step=True, on_epoch=True)
 
         return loss
@@ -217,14 +368,13 @@ class ProteinCLIP(pl.LightningModule):
     def validation_step(self, batch, batch_idx) -> torch.Tensor:
         prot_embs, text_embs, labels = batch["prot_emb"], batch["text_emb"], batch["label"]
 
-        prot_norm, text_norm = self(prot_embs, text_embs)
+        prot_embs = self.prot_projection(prot_embs)
+        text_embs = self.text_projection(text_embs)
 
-        # logit_scale = self.model.logit_scale.exp().clamp(max=50)
-        loss = self.loss(prot_norm, text_norm, labels)
+        loss, prot_norm, text_norm = self.loss(prot_embs, text_embs, labels)
 
         cosine_sim = F.cosine_similarity(prot_norm, text_norm, dim=-1)
         positive_cos_sim = cosine_sim[labels == 1]
-
         self.val_cosine(positive_cos_sim)
 
         self.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
@@ -234,9 +384,11 @@ class ProteinCLIP(pl.LightningModule):
 
     def test_step(self, batch, batch_idx) -> torch.Tensor:
         prot_embs, text_embs, labels = batch["prot_emb"], batch["text_emb"], batch["label"]
-        prot_norm, text_norm = self(prot_embs, text_embs)
 
-        loss = self.loss(prot_norm, text_norm, labels)
+        prot_embs = self.prot_projection(prot_embs)
+        text_embs = self.text_projection(text_embs)
+
+        loss, prot_norm, text_norm = self.loss(prot_embs, text_embs, labels)
 
         cosine_sim = F.cosine_similarity(prot_norm, text_norm, dim=-1)
         positive_cos_sim = cosine_sim[labels == 1]

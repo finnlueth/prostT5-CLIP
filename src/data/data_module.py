@@ -5,8 +5,10 @@ import numpy as np
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Sampler
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from datasets import load_from_disk
+from src.utils.config import get_params
 
 
 class H5Reader:
@@ -74,7 +76,10 @@ class ProteinGODataModule(pl.LightningDataModule):
         self.val_ds = None
         self.test_ds = None
         self.prot_loader = H5Reader(config["prot_emb_file"])
-        self.text_loader = H5Reader(config["text_emb_file"])
+        self.text_loader = H5Reader(config["text_emb_file"]) if config.get("text_emb_file") else None
+        self.model, self.tokenizer = self.setup_model(
+            checkpoint=get_params("embed_text")["model"], device=get_params("embed_text")["device"]
+        )
 
     def prepare_data(self):
         """load dataset from disk"""
@@ -93,7 +98,8 @@ class ProteinGODataModule(pl.LightningDataModule):
         if stage in ("fit", "validate"):
             ds = self.dataset["train"]
             split = ds.train_test_split(
-                test_size=self.config["val_size"], seed=self.config["seed"], stratify_by_column="label"
+                test_size=self.config["val_size"],
+                seed=self.config["seed"],
             )
 
             self.train_ds = split["train"]
@@ -128,13 +134,79 @@ class ProteinGODataModule(pl.LightningDataModule):
             "label": torch.tensor(labels, dtype=torch.long),
         }
 
+    def collate_fn_embed_text(self, batch):
+        """
+        Custom collate function to batch data with text embeddings.
+
+        Returns:
+            Dict[str, Any]: Batched data including prot_id, terms, prot_emb, text_emb.
+        """
+        prot_id, terms, sentences = [], [], []
+        for item in batch:
+            prot_id.append(item["proteins"])
+            terms.append(item["terms"])
+            sentences.append(item["sentences"])
+
+        prot_emb = torch.stack([self.prot_loader[pid] for pid in prot_id])
+
+        try:
+            text_emb = [self.compute_embedding(text) for text in sentences]
+        except Exception as e:
+            raise RuntimeError(f"Error computing embeddings: {e}")
+
+        return {
+            "prot_id": prot_id,
+            "prot_emb": prot_emb,
+            "terms": terms,
+            "text_emb": torch.stack(text_emb),
+        }
+
+    @staticmethod
+    def setup_model(checkpoint="microsoft/Phi-3.5-mini-instruct", device: torch.device = "cuda") -> tuple:
+        torch.backends.cuda.enable_flash_sdp(False)
+
+        tokenizer = AutoTokenizer.from_pretrained(checkpoint)
+
+        model = AutoModelForCausalLM.from_pretrained(
+            checkpoint,
+            device_map=device,
+            torch_dtype="auto",
+            trust_remote_code=True,
+        )
+        return model, tokenizer
+
+    def compute_embedding(self, text: str):
+        torch.cuda.empty_cache()
+
+        inputs = self.tokenizer(
+            text,
+            return_tensors="pt",
+            padding=True,
+            truncation=True,
+            max_length=get_params("embed_text")["max_len"],
+        )
+        inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            outputs = self.model(**inputs, output_hidden_states=True)
+            hidden_states = outputs.hidden_states[-1]
+
+        if get_params("embed_text")["sentence_level"] == "token_embeddings":
+            embeddings = hidden_states.squeeze(0).cpu().float()
+        elif get_params("embed_text")["sentence_level"] == "sentence_embeddings":
+            embeddings = hidden_states.mean(dim=1).squeeze(0).cpu().float()
+        else:
+            raise ValueError("Sentence level must be either 'token_embeddings' or 'sentence_embeddings'")
+
+        return embeddings
+
     def train_dataloader(self):
         return DataLoader(
             self.train_ds,
             batch_size=self.config["batch_size"],
             num_workers=self.config["num_workers"],
-            collate_fn=self.collate_fn,
-            shuffle=False,
+            collate_fn=self.collate_fn if self.text_loader else self.collate_fn_embed_text,
+            shuffle=True,
             pin_memory=True,
         )
 
@@ -143,7 +215,7 @@ class ProteinGODataModule(pl.LightningDataModule):
             self.val_ds,
             batch_size=self.config["batch_size"],
             num_workers=self.config["num_workers"],
-            collate_fn=self.collate_fn,
+            collate_fn=self.collate_fn if self.text_loader else self.collate_fn_embed_text,
             shuffle=False,
             pin_memory=True,
         )
@@ -153,7 +225,7 @@ class ProteinGODataModule(pl.LightningDataModule):
             self.test_ds,
             batch_size=self.config["batch_size"],
             num_workers=self.config["num_workers"],
-            collate_fn=self.collate_fn,
+            collate_fn=self.collate_fn if self.text_loader else self.collate_fn_embed_text,
             shuffle=False,
             pin_memory=True,
         )
