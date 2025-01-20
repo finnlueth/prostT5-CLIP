@@ -122,10 +122,21 @@ class GOParser(AnnotationParser):
 
         return hierarchy, names, sentences
 
-    def _calculate_depths(self) -> dict:
-        """Calculate the depth of each GO term in the hierarchy."""
+    def calculate_depths(self, bottom_up: bool) -> dict:
+        """Calculate the depth of each GO term in the hierarchy.
+
+        Args:
+            bottom_up: Calculate the depth from the bottom up will use the parent-to-cildren hierarchy.
+            Otherwise, use the children-to-parent hierarchy.
+
+        Returns:
+            dict: Mapping from GO term to its depth in the hierarchy.
+        """
+
         depths = {}
         visited = set()
+
+        hiearchy = self.go_hierarchy if bottom_up else self.go_reversed_hierarchy
 
         @lru_cache(maxsize=None)
         def get_depth(term):
@@ -133,7 +144,7 @@ class GOParser(AnnotationParser):
                 return depths[term]
 
             visited.add(term)
-            children = self.go_reversed_hierarchy.get(term, set())
+            children = hiearchy.get(term, set())
             if not children:
                 depths[term] = 0
                 return 0
@@ -142,7 +153,7 @@ class GOParser(AnnotationParser):
             depths[term] = max_child_depth + 1
             return depths[term]
 
-        for term in self.go_reversed_hierarchy:
+        for term in hiearchy:
             if term not in visited:
                 get_depth(term)
 
@@ -259,6 +270,10 @@ class GOParser(AnnotationParser):
     def get_term_names(self, term: str) -> str:
         """Get GO term name from GO ID"""
         return self.go_names[term]
+
+    def get_senetences(self) -> dict:
+        """Get GO term sentences"""
+        return self.go_sentences
 
 
 class UniprotParser(AnnotationParser):

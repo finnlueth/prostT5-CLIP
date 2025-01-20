@@ -8,10 +8,13 @@ from pyfaidx import Fasta
 from tqdm import tqdm
 
 from datasets import ClassLabel, Dataset, Features, Value
+from src.utils.annotation import GOParser
 from src.utils.config import get_params
 
 
 class HuggingFaceDatasetCreator:
+    """Base class for creating HuggingFace datasets"""
+
     def __init__(self, sequence: Path, metadata: Path, go_sentence: Path, seed: int = 42, test_size: float = 0.1):
         """
         Initialize the dataset creator.
@@ -58,6 +61,10 @@ class HuggingFaceDatasetCreator:
 
 
 class ProteinGOContrastiveDataset(HuggingFaceDatasetCreator):
+    """
+    Custom Dataset for Protein-GO term pairs with all `protein` * `non-redundant GO term` and `protein` * same number of `negative GO term` for contrastive learning using pre-computed embeddings.
+    """
+
     def __init__(self, sequence: Path, metadata: Path, go_sentence: Path, seed: int = 42, test_size: float = 0.1):
         """
         Custom Dataset for Protein-GO term pairs with protein ID and GO term ID for contrastive learning.
@@ -115,6 +122,10 @@ class ProteinGOContrastiveDataset(HuggingFaceDatasetCreator):
 
 
 class ProteinGOConcatenatedDataset(HuggingFaceDatasetCreator):
+    """
+    Custom Dataset for Protein-GO term pairs with protein sequence and concatenated GO sentences including only `true` GO terms.
+    """
+
     def __init__(self, sequence: Path, metadata: Path, go_sentence: Path, seed: int = 42, test_size: float = 0.1):
         super().__init__(sequence, metadata, go_sentence, seed, test_size)
 
@@ -126,7 +137,7 @@ class ProteinGOConcatenatedDataset(HuggingFaceDatasetCreator):
             Dataset: HuggingFace Dataset object.
         """
         concatenated = [
-            self.concatenate_sentences(go_terms, delimiter=",", end=".")
+            self.concatenate_sentences(go_terms, delimiter=", ", end=".")
             for go_terms in tqdm(self.metadata["GO_terms"].str.split(",").to_list(), desc="Concatenating sentences")
         ]
 
@@ -146,6 +157,10 @@ class ProteinGOConcatenatedDataset(HuggingFaceDatasetCreator):
 
 
 class ProteinGOContrastiveConcatenatedDataset(HuggingFaceDatasetCreator):
+    """
+    Custom Dataset for Protein-GO term pairs with protein sequence and concatenated GO sentences including both `true` and selected number of `negative` GO terms for contrastive learning.
+    """
+
     def __init__(self, sequence: Path, metadata: Path, go_sentence: Path, seed: int = 42, test_size: float = 0.1):
         super().__init__(sequence, metadata, go_sentence, seed, test_size)
         self.rng = np.random.default_rng(seed)
@@ -195,11 +210,57 @@ class ProteinGOContrastiveConcatenatedDataset(HuggingFaceDatasetCreator):
             positive = self.concatenate_sentences(go_terms, delimiter=",", start="Relevant to: ", end=";")
             negative = self.concatenate_sentences(
                 self.sample_negative(go_terms, go_terms_pool),
-                delimiter=",",
+                delimiter=", ",
                 start="Not relevant to: ",
                 end=".",
             )
             concatenated.append(" ".join([positive, negative]))
+
+        data = {
+            "proteins": self.metadata["EntryID"].tolist(),
+            "sequences": [str(self.sequence[prot]) for prot in self.metadata["EntryID"].tolist()],
+            "sentences": concatenated,
+        }
+
+        features = Features({"proteins": Value("string"), "sequences": Value("string"), "sentences": Value("string")})
+
+        return (
+            Dataset.from_dict(data, features=features)
+            .shuffle(seed=self.seed)
+            .train_test_split(test_size=self.test_size, seed=self.seed)
+        )
+
+
+class ProteinGOConcatenatedRandomDataset(HuggingFaceDatasetCreator):
+    def __init__(
+        self, sequence: Path, metadata: Path, go_sentence: Path, go_file: Path, seed: int = 42, test_size: float = 0.1
+    ):
+        super().__init__(sequence, metadata, go_sentence, seed, test_size)
+        self.rng = np.random.default_rng(seed)
+        self.go_parser = GOParser(go_file, with_aspect=False, seed=seed)
+
+    def create_dataset(self):
+        depths = self.go_parser.calculate_depths(bottom_up=True)
+        sentences = self.go_parser.get_senetences()
+        self.sentence = {term: info["sentence"] for term, info in sentences.items()}
+
+        concatenated = []
+        for go_terms in tqdm(self.metadata["GO_terms"].str.split(",").to_list(), desc="Concatenating random sentences"):
+            go_terms = set(go_terms)
+            go_depths = {term: depths[term] for term in go_terms}
+
+            selected = [term for term, depth in go_depths.items() if depth == 3]
+            if len(go_terms - set(selected)) > 10 - len(selected):
+                selected = selected[-3:]
+                sampled = list(
+                    self.rng.choice(list(go_terms - set(selected)), size=(10 - len(selected)), replace=False)
+                )
+            else:
+                sampled = list(go_terms - set(selected))
+
+            concatenated.append(
+                self.concatenate_sentences(selected + sampled, delimiter=", ", start="Relevant to: ", end=".")
+            )
 
         data = {
             "proteins": self.metadata["EntryID"].tolist(),
@@ -228,6 +289,7 @@ def main():
         Path(params["protein"]),
         Path(params["metadata"]),
         Path(params["go_sentence"]),
+        Path(params["go-basic"]),
         seed=params["seed"],
         test_size=params["test_size"],
     )

@@ -116,13 +116,14 @@ class ProteinGODataModule(pl.LightningDataModule):
         prot_id, term_id, labels = [], [], []
 
         for item in batch:
-            if item is not None:
-                prot_id.append(item["protein"])
-                term_id.append(item["term"])
-                labels.append(int(item["label"]))
+            prot_id.append(item["protein"])
+            term_id.append(item["term"])
+            labels.append(int(item["label"]))
 
         return {
+            "prot_id": prot_id,
             "prot_emb": torch.stack([self.prot_loader[pid] for pid in prot_id]),
+            "go_term": term_id,
             "text_emb": torch.stack([self.text_loader[tid] for tid in term_id]),
             "label": torch.tensor(labels, dtype=torch.long),
         }
@@ -133,7 +134,7 @@ class ProteinGODataModule(pl.LightningDataModule):
             batch_size=self.config["batch_size"],
             num_workers=self.config["num_workers"],
             collate_fn=self.collate_fn,
-            shuffle=True,
+            shuffle=False,
             pin_memory=True,
         )
 
