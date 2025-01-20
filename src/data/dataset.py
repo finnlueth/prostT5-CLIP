@@ -27,7 +27,9 @@ class HuggingFaceDatasetCreator:
             test_size (float, optional): Test set size. Defaults to 0.1.
         """
         self.sequence = Fasta(sequence, as_raw=True)
-        self.metadata = pd.read_csv(metadata, sep="\t", usecols=["EntryID", "GO_terms", "positive_GO", "negative_GO"])
+        self.metadata = pd.read_csv(
+            metadata, sep="\t", usecols=["EntryID", "species", "GO_terms", "positive_GO", "negative_GO"]
+        )
         self.sentence = pd.read_csv(go_sentence, sep="\t").set_index("term")["sentence"].to_dict()
         self.seed = seed
         self.test_size = test_size
@@ -148,6 +150,78 @@ class ProteinGOConcatenatedDataset(HuggingFaceDatasetCreator):
         }
 
         features = Features({"proteins": Value("string"), "sequences": Value("string"), "sentences": Value("string")})
+
+        return (
+            Dataset.from_dict(data, features=features)
+            .shuffle(seed=self.seed)
+            .train_test_split(test_size=self.test_size, seed=self.seed)
+        )
+
+
+class ProteinReducedGOConcatenatedDataset(HuggingFaceDatasetCreator):
+    """
+    Custom Dataset for Protein-GO term pairs with protein sequence and concatenated
+    GO sentences including only redundancy reduced `true` GO terms.
+    """
+
+    def __init__(self, sequence: Path, metadata: Path, go_sentence: Path, seed: int = 42, test_size: float = 0.1):
+        super().__init__(sequence, metadata, go_sentence, seed, test_size)
+        self.sentence = pd.read_csv(go_sentence, sep="\t").set_index("term")
+        self.rephrase = {
+            "biological_process": "involved in",
+            "cellular_component": "located in",
+            "molecular_function": "responsible for",
+        }
+
+    def concatenate_sentences(self, go_terms: list, delimiter: str, start: str = "", end: str = "") -> str:
+        """
+        Concatenate GO sentences for given GO terms.
+
+        Args:
+            go_terms (list): List of GO terms.
+            delimiter (str): Delimiter to join the sentences.
+            start (str, optional): Start of the concatenated sentence. Defaults to "".
+            end (str, optional): End of the concatenated sentence. Defaults to "".
+
+        Returns:
+            str: Concatenated GO sentences.
+        """
+        subset = self.sentence.loc[go_terms]
+        grouped = subset.groupby("namespace")["sentence"].apply(list)
+
+        concatenated = []
+
+        for namespace, sentences in grouped.items():
+            text = f"{self.rephrase[namespace]} {delimiter.join(sentences)}"
+            concatenated.append(text)
+
+        return start + delimiter.join(concatenated) + end
+
+    def create_dataset(self) -> Dataset:
+        """
+        Create a protein-GO concatenated dataset by concatenating only redundancy reduced `true` GO sentences for each protein.
+
+        Returns:
+            Dataset: HuggingFace Dataset object.
+        """
+
+        species = self.metadata["species"].tolist()
+        go_terms = self.metadata["positive_GO"].str.split(",").tolist()
+
+        concatenated = [
+            self.concatenate_sentences(
+                go_terms, delimiter=", ", end=".", start=f"This protein originates from {species}, and is "
+            )
+            for species, go_terms in tqdm(zip(species, go_terms), desc="Concatenating sentences", total=len(species))
+        ]
+
+        data = {
+            "proteins": self.metadata["EntryID"].tolist(),
+            "terms": self.metadata["positive_GO"].tolist(),
+            "sentences": concatenated,
+        }
+
+        features = Features({"proteins": Value("string"), "terms": Value("string"), "sentences": Value("string")})
 
         return (
             Dataset.from_dict(data, features=features)
@@ -289,7 +363,6 @@ def main():
         Path(params["protein"]),
         Path(params["metadata"]),
         Path(params["go_sentence"]),
-        Path(params["go-basic"]),
         seed=params["seed"],
         test_size=params["test_size"],
     )

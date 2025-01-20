@@ -8,11 +8,12 @@ import torch
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from datasets import load_from_disk
 from src.utils.config import get_params
 
 
 def setup_model(checkpoint="microsoft/Phi-3.5-mini-instruct", device: torch.device = "cuda") -> Tuple:
-    torch.backends.cuda.enable_flash_sdp(True)
+    torch.backends.cuda.enable_flash_sdp(False)
     try:
         tokenizer = AutoTokenizer.from_pretrained(checkpoint)
         # for flash attention set attn_implementation="flash_attention_2
@@ -63,15 +64,24 @@ def create_embedding(
 
     with h5py.File(output, "a") as hdf:
         for _, row in tqdm(df.iterrows(), total=len(df), desc="Embedding texts"):
+            """
             go = row["term"]
 
             if go in hdf:
                 tqdm.write(f"GO term {go} already in text embedding, skipping")
                 continue
+                
+            """
 
-            text = f"{row["sentence"]}."
+            protein = row["proteins"]
+
+            if protein in hdf:
+                tqdm.write(f"Protein {protein} already has text embedding, skipping")
+                continue
+
+            text = f"{row["sentences"]}"
             embedding = compute_embedding(text, sentence_level, max_length)
-            hdf.create_dataset(name=go, data=embedding)
+            hdf.create_dataset(name=protein, data=embedding)
 
     logging.info(f"Embeddings saved to {output}")
 
@@ -79,10 +89,12 @@ def create_embedding(
 def main():
     params = get_params("embed_text")
 
-    go = pd.read_csv(Path(params["sentence"]), sep="\t")
+    # ds = pd.read_csv(Path(params["sentence"]), sep="\t")
+
+    ds = load_from_disk(Path(params["source"]))
 
     create_embedding(
-        df=go,
+        df=ds["train"].to_pandas(),
         model=params["model"],
         tokenizer=params["tokenizer"],
         output=Path(params["output"]),
