@@ -261,7 +261,7 @@ def setup_trainer(model, dataset, train_config, model_name_identifier, USE_WANDB
         model=model,
         args=training_args,
         train_dataset=dataset["train"],#.select(range(512)), #!!!
-        eval_dataset=dataset["test"],
+        eval_dataset=dataset["train"],
         data_collator=data_collator,
         compute_metrics=metrics_factory(),
         eval_sample_size=train_config["trainer"]["eval_sample_size"],
