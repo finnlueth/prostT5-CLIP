@@ -57,13 +57,13 @@ embed_seq:
     sequence: "cafa5/test/testsuperset.fasta"
 
 embed_text:
-  source: "datasets/protein_reduced_go_concatenated"
+  source: "output/metadata_concatenated.tsv"
   model: "microsoft/Phi-3.5-mini-instruct"
   tokenizer: "microsoft/Phi-3.5-mini-instruct"
   sentence_level: "sentence_embeddings"
-  max_len: 1024
-  device: "cuda"
-  output: "embeddings/text_reduced_go_concatenated.h5"
+  max_len: 2048
+  device: "mps"
+  output: "embeddings/concatenated_text_embedding.h5"
 
 embed_vis:
   subsample: 1000
@@ -80,7 +80,7 @@ embed_vis:
 train:
   dataset: "datasets/protein_reduced_go_concatenated"
   prot_emb_file: "embeddings/sequence_embeddings.h5"
-  # text_emb_file: "embeddings/text_embeddings.h5"
+  text_emb_file: "embeddings/text_embeddings.h5"
   go_sentence: "output/go_sentences.tsv"
   num_workers: 1
   seed: 42
