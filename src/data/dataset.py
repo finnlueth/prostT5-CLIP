@@ -172,6 +172,7 @@ class ProteinReducedGOConcatenatedDataset(HuggingFaceDatasetCreator):
             "cellular_component": "located in",
             "molecular_function": "responsible for",
         }
+        self.dir = go_sentence.parent
 
     def concatenate_sentences(self, go_terms: list, delimiter: str, start: str = "", end: str = "") -> str:
         """
@@ -220,6 +221,8 @@ class ProteinReducedGOConcatenatedDataset(HuggingFaceDatasetCreator):
             "terms": self.metadata["positive_GO"].tolist(),
             "sentences": concatenated,
         }
+
+        pd.DataFrame(data).to_csv(self.dir / "metadata_concatenated.tsv", index=False)
 
         features = Features({"proteins": Value("string"), "terms": Value("string"), "sentences": Value("string")})
 
