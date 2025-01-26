@@ -70,7 +70,6 @@ class ProteinSampleSubsetTrainer(Trainer):
         return dataloader
 
     # based on https://github.com/huggingface/transformers/blob/v4.47.1/src/transformers/trainer.py#L1056
-    # TODO: Subset evaluation dataset during training
     def get_eval_dataloader(self, eval_dataset=None):
         """
         Samples the evaluation dataset and returns a subset of size self.eval_sample_size.
@@ -87,7 +86,6 @@ class ProteinSampleSubsetTrainer(Trainer):
             and self.args.dataloader_persistent_workers
         ):
             return self.accelerator.prepare(self._eval_dataloaders[dataloader_key])
-
 
         # Use random subset of eval dataset
         eval_dataset = (
